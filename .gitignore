@@ -1,6 +1,9 @@
 # Data folder
 /data
 
+# Output folder
+/output
+
 # Packrat source tarballs
 /packrat/src/
 
@@ -43,3 +46,5 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+packrat/lib*/
+packrat/src/

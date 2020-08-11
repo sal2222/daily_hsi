@@ -8,11 +8,13 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+
 library(tidyverse)
 library(naniar)
 library(purrr)
 library(janitor)
 library(Hmisc)
+
 
 ```
 
@@ -196,7 +198,7 @@ encounters_casedef <-
   encounters_casedef %>% 
     dplyr::mutate(installation_name =
               dplyr::recode(installation_name, 
-                  `CHERRY POINT` = "CAMP LEJUNE",
+                  `CHERRY POINT` = "CAMP LEJEUNE",
                   `BEAUFORT` = "PARRIS ISLAND",
                   `LACKLAND AFB` = "JBSA",
                   `JOINT (AF) SAN ANTONIO LAF-RAF-FSH` = "JBSA",
@@ -214,6 +216,34 @@ encounters_casedef %>%
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) 
+
+
+# Top 100 installations
+encounters_casedef %>% 
+    group_by(installation_name) %>% 
+    count() %>% 
+    arrange(desc(n)) %>% 
+    ungroup() %>% 
+    dplyr::slice_head(n = 100) %>% 
+  ggplot(aes(x = reorder(installation_name, -n), y = n)) +
+    geom_bar(stat = "identity")
+
+
+# Cumulative percentages
+
+
+encounters_casedef %>% 
+    group_by(installation_name) %>% 
+    count() %>% 
+    arrange(desc(n)) %>% 
+    ungroup() %>% 
+    mutate(cum_pct = cumsum(n) / sum(n),
+           change_cum_pct = cum_pct - lag(cum_pct)) %>% 
+    dplyr::slice_head(n = 50) %>% View()
+
+
+lag(1:10, 1)
+lead(1:10, 1)
 
 # Nest by installation
 

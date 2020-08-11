@@ -1,0 +1,229 @@
+---
+title: "dmisid"
+author: "SL"
+date: "6/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(naniar)
+library(purrr)
+library(janitor)
+library(Hmisc)
+
+```
+
+
+Download DMIS Year End 1989 - 2019 files from:
+https://www.health.mil/Military-Health-Topics/Technology/Support-Areas/Geographic-Reference-Information/DMIS-ID-Tables
+
+
+```{r}
+
+# List all DMISIS file paths (FY1989 - 2019)
+dmisid_file_list <- list.files("data/dmisid/", pattern = '*.xls',   full.names = TRUE)
+
+dmisid_file_list <- setNames(dmisid_file_list, dmisid_file_list) 
+  
+# Read-in all Excel files
+dmisid_df <- map_df(dmisid_file_list, readxl::read_excel, .id = "id")
+
+dmisid_df %>% 
+      filter(is.na(`Installation Name`) & is.na(`Installation Name (35-character maximum)`))
+
+dmisid <-
+  dmisid_df %>% 
+    janitor::clean_names() %>%
+    dplyr::select(id, dmis_id, facility_name, dmis_facility_name_30_character_maximum, facility_zip_code, installation_name, installation_name_35_character_maximum, facility_5_digit_zip_code) %>% 
+  tidyr::unite(facility_name, facility_name, dmis_facility_name_30_character_maximum, sep = "", na.rm = TRUE) %>% 
+  tidyr::unite(installation_name, installation_name, installation_name_35_character_maximum, sep = "", na.rm = TRUE) %>% 
+  tidyr::unite(facility_zipcode, facility_zip_code, facility_5_digit_zip_code, sep = "", na.rm = TRUE) %>% 
+  dplyr::mutate(dmis_fy = 
+                  id %>% stringr::str_match_all("[0-9]+") %>%
+                  unlist() %>% as.numeric()) %>% 
+  dplyr::select(-id) %>% 
+  dplyr::mutate_all(list(~na_if(.,""))) # convert blank values to `NA`
+
+
+dmisid %>% 
+    filter(is.na(installation_name))
+
+dmisid %>% 
+    filter(is.na(facility_zipcode))
+
+dmisid %>% 
+    filter(is.na(installation_name) & is.na(facility_zipcode))
+
+# Inspect missing values
+#dmisid %>% 
+#  naniar::vis_miss()  
+
+dmisid %>% 
+  group_by(dmis_id) %>% 
+  count()
+
+dmisid %>% View()
+```
+
+## Link to encounters
+```{r}
+# Read-in `encounters_casedef`
+
+
+encounters_casedef <-
+  read_rds("data/encounters_casedef.rds") 
+    
+
+# Identify and remove observations with no dmisid
+
+no_dmisid_casedef <-
+  encounters_casedef %>% 
+  filter(is.na(dmisid))
+
+# Missing dmisid (location) summary
+Hmisc::describe(no_dmisid_casedef)
+
+
+# Filter out obs missing `dmidid`, convert N prefixes in `dmisid` to "0" 
+
+encounters_casedef <-
+ encounters_casedef %>% 
+    filter(!is.na(dmisid)) %>%
+    dplyr::mutate(dmisid = stringr::str_replace_all(string = dmisid, pattern = "N", replacement = "0")) %>% 
+    dplyr::mutate(year = lubridate::year(d_event))
+
+
+
+# Join encounters with DMISID based on table key for each FY
+
+
+
+encounters_casedef <-
+  list(encounters_casedef, dmisid) %>% reduce(left_join, by = c("dmisid" = "dmis_id"))
+
+
+encounters_casedef
+
+
+# Inspect missing values
+#encounters_casedef %>%
+#  dplyr::select(dmisid, facility_name:installation_name) %>% 
+#  naniar::vis_miss(warn_large_data = FALSE) 
+
+
+no_dmisid_match <-
+  encounters_casedef %>% 
+  filter(is.na(installation_name))
+
+no_dmisid_match %>% 
+  group_by(dmisid) %>% 
+  count() %>% 
+  arrange(desc(n))
+
+# Inspect facility names of DMISIDs missing installation names
+no_dmisid_match %>% 
+  group_by(facility_name) %>% 
+  count() %>% 
+  arrange(desc(n))
+
+# DMISID 6133 not in DMIS reference tables, 244 case def observations (Marines)
+encounters_casedef %>% 
+  filter(dmisid %in% "6133") %>% Hmisc::describe()
+
+encounters_casedef %>% 
+  group_by(installation_name) %>% 
+  count() %>% 
+  arrange(desc(n))
+
+encounters_casedef %>% 
+  dplyr::filter(is.na(installation_name)) #965 missing
+
+encounters_casedef %>% 
+  dplyr::filter(is.na(facility_zipcode)) #3,850 missing
+
+```
+
+
+## Group by Installation
+1 Benning
+2 Bragg
+3 Lejune | Cherry Point
+4 Campbell
+5 Parris Island | Beaufort
+6 Jackson
+7 Pendleton
+8 Polk
+9 San Diego
+10 Hood
+11 Quantico
+12 Stewart
+13 Twentynine Palms
+14 Leonard Wood
+15 JBSA Lackland
+16 Elgin
+17 Riley
+18 Irwin
+
+
+```{r}
+# 485 distinct installation names
+
+
+# remove `.`, eg `FT.`; 461 distinct,
+# change `FORT` to `FT`, 455 distinct
+
+encounters_casedef <-
+  encounters_casedef %>% 
+    mutate(installation_name = stringr::str_remove(installation_name, "\\."),
+           installation_name = stringr::str_replace(installation_name, "FORT", "FT"),# also changes "BEAUFORT"
+           installation_name = stringr::str_replace(installation_name, "BEAUFT", "BEAUFORT"))
+
+  
+# Join installation names
+  
+# combine `CAMP LEJUNE` & `CHERRY POINT`
+# combine `PARRIS ISLAND` & `BEAUFORT`
+# combine `LACKLAND AFB`, `JOINT (AF) SAN ANTONIO LAF-RAF-FSH`, `	FT SAM HOUSTON`, `LACKLAND JBSA`, `LACKLAND JB`, `RANDOLPH AFB`
+# 
+# FT BRAGG- NC  
+# NH TWENTY-NINE PALMS
+# SAN DIEGO NH
+
+encounters_casedef <-
+  encounters_casedef %>% 
+    dplyr::mutate(installation_name =
+              dplyr::recode(installation_name, 
+                  `CHERRY POINT` = "CAMP LEJUNE",
+                  `BEAUFORT` = "PARRIS ISLAND",
+                  `LACKLAND AFB` = "JBSA",
+                  `JOINT (AF) SAN ANTONIO LAF-RAF-FSH` = "JBSA",
+                  `FT SAM HOUSTON` = "JBSA",
+                  `LACKLAND JBSA` = "JBSA",
+                  `LACKLAND JB` = "JBSA",
+                  `RANDOLPH AFB` = "JBSA",
+                  `FT BRAGG- NC` = "FT BRAGG",
+                  `NH TWENTY-NINE PALMS` = "TWENTYNINE PALMS",
+                  `SAN DIEGO NH` = "SAN DIEGO")  
+                  ) 
+  
+
+encounters_casedef %>% 
+    group_by(installation_name) %>% 
+    count() %>% 
+    arrange(desc(n)) 
+
+# Nest by installation
+
+encounters_top10 <-
+  encounters_casedef %>%
+    dplyr::group_by(installation_name) %>% 
+    dplyr::group_nest() %>% 
+    dplyr::mutate(n = map(data, nrow) %>% unlist()) %>% 
+    dplyr::arrange(desc(n)) %>% 
+    dplyr::slice(1:10)
+  
+```
+

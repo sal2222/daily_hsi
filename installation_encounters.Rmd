@@ -1,0 +1,113 @@
+---
+title: "installation_encounters"
+author: "SL"
+date: "6/12/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(purrr)
+library(forecast)
+library(dlnm)
+library(remotes)
+library(case.crossover)
+#remotes::install_github("RyanGan/case.crossover")
+library(lubridate)
+
+memory.limit()
+
+# increase memory storage capacity
+memory.limit(size = 56000)
+   
+```
+
+
+```{r}
+
+encounters_top10 %>% 
+  unnest(data) %>%
+  dplyr::group_by(installation_name, year) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = year, y = n, color = installation_name)) +
+    geom_point() +
+    geom_smooth(method = lm, alpha = 0.2)
+
+
+# All casedef data, daily TS
+
+encounters_casedef %>% 
+  dplyr::group_by(d_event) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = d_event, y = n)) +
+    geom_line()  
+
+
+# plot FT BRAGG daily TS
+encounters_top10 %>% 
+  dplyr::slice(1) %>% 
+  unnest(data) %>%
+  dplyr::group_by(d_event) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = d_event, y = n)) +
+    geom_line()  
+
+# plot FT BRAGG year-mon
+encounters_top10 %>% 
+  dplyr::slice(1) %>% 
+  unnest(data) %>%
+  dplyr::mutate(yearmon = zoo::as.yearmon(d_event)) %>% 
+  dplyr::group_by(yearmon) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = yearmon, y = n)) +
+    geom_line()
+
+
+```
+
+## Case-crossover strata
+```{r create_strata, eval = FALSE}
+### Create strata for case-crossover
+# Identify  control days for each case day and assign exposures for each day  
+
+# https://rdrr.io/github/RyanGan/case.crossover/man/casecross.html
+
+
+# casecross(data, id, date, covariate = F, period = "month")
+# Function creates a time-stratified case-crossover dataframe from a case-only dataframe 
+# where the outcome on a particular date can be compared to referent periods on the same day of the week.
+# 
+
+#https://github.com/RyanGan/case.crossover/blob/master/R/casecross.R
+
+
+# Bragg strata
+
+bragg_strata <-
+  encounters_top10 %>% 
+    dplyr::slice(1) %>% 
+    unnest(data) %>%
+    dplyr::mutate(id = paste(studyid, d_event, sep = "_") ) %>% 
+    case.crossover::casecross(data = ., id = "id" , date = "d_event", covariate = F, period = "month") %>% 
+  as_tibble() 
+
+write_rds(bragg_strata, "data/bragg_strata.rds")
+
+
+  
+
+```
+
+
+```{r}
+bragg_strata <- 
+  read_rds("data/bragg_strata.rds")
+
+bragg_strata %>%
+  dplyr::mutate(d_event = as.Date(d_event)) 
+```
+

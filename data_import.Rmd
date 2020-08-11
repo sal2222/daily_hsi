@@ -1,0 +1,260 @@
+---
+title: "data_import"
+author: "SL"
+date: "5/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(haven)
+library(Hmisc)
+library(janitor)
+library(skimr)
+library(zoo)
+library(naniar)
+
+# packrat::snapshot()
+```
+
+## Import data files
+
+HSI Data: sas7bdat format
+DMIS IS Data: Excel format
+```{r}
+
+persons <-
+  haven::read_sas("./data/R200131_persons.sas7bdat") %>%
+  haven::zap_formats() %>% 
+  haven::zap_label() %>%
+  dplyr::mutate_at(vars(-BMI), haven::zap_empty) %>%  # convert empty character strings into missing values
+  janitor::clean_names()
+
+
+encounters <-
+  haven::read_sas("./data/R200131_encounters.sas7bdat") %>%
+  haven::zap_formats() %>% 
+  haven::zap_label() %>% # remove SAS labels
+  dplyr::mutate_at(vars(-D_EVENT), haven::zap_empty) %>%  # convert empty character strings into missing values
+  janitor::clean_names() %>% 
+  unique()   # remove duplicate rows 
+
+# inspect missing values
+encounters %>% 
+  naniar::vis_miss(warn_large_data = FALSE)  
+  
+dmisid <- readxl::read_excel("./data/DMISID_FY2019.xlsx") %>% 
+  janitor::clean_names() %>% 
+  dplyr::select(dmis_id, 
+                facility_unit_id = unit_id_code,
+                facility_type = facility_type_code_6_char_maximum,
+                facility_name = dmis_facility_name_30_character_maximum,
+                facility_installation = installation_name_35_character_maximum, 
+                facility_state = facility_state_code,
+                facility_city = facility_city_name_32_character_maximum,
+                facility_zipcode = facility_5_digit_zip_code,
+                facility_region = health_service_region,
+                facility_branch = branch_of_service_authority_code)
+
+
+```
+
+
+## Clean Data
+
+## Multiple Encounters
+
+For individuals who meet the case definition:
+• The incidence date is considered the date of the first hospitalization, outpatient medical encounter, or reportable medical event that includes a defining diagnosis of heat illness.
+• An individual is considered an incident case only once per calendar year.
+• For individuals with more than one heat illness diagnosis in a calendar year, heat stroke is prioritized over heat exhaustion.
+• Medical encounters for each individual within a calendar year are prioritized: hospitalizations > reportable medical events > ambulatory visits.
+```{r}
+
+encounters %>% 
+  group_by(studyid) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  summary(n)
+
+
+encounters %>% 
+  group_by(studyid) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  ggplot() +
+    geom_histogram(aes(x = n), bins = 75)
+
+
+# Classify each encounter as heat stroke, heat exhaustion, or other
+
+encounters_diag <-
+  encounters %>% 
+   dplyr::mutate(hsi = dplyr::case_when(
+     str_detect(dx1, "T670XX[A-Z]") | str_detect(dx1, "9920") |
+     str_detect(dx2, "T670XX[A-Z]") | str_detect(dx2, "9920")
+     ~ "heat_stroke",
+     str_detect(dx1, "T67[3459]XX[A-Z]") | str_detect(dx1, "992[345]") |
+     str_detect(dx2, "T67[3459]XX[A-Z]") | str_detect(dx2, "992[345]")
+     ~ "heat_exhaustion",
+        TRUE ~ "other")) 
+
+
+encounters_diag %>% 
+  count(hsi)
+
+encounters_diag %>% 
+  dplyr::group_by(source) %>% 
+  count(hsi)
+
+# Apply case definition: 
+#   considered an incident case only once per calendar year
+#   heat stroke is prioritized over heat exhaustion
+
+
+# Identify observations to remove: 
+#   more than 1 observation per studyid-year
+#   heat stroke > heat exhaustion
+#   hospitalizations > reportable medical events > ambulatory visits
+
+
+# Remove `other` hsi observations 
+
+encounters_no_other <-
+  encounters_diag %>% 
+    dplyr::filter(!hsi %in% "other")
+
+
+# Remove `heat_exhaustion` or `other` if `heat_stroke` in studyid/year stratum
+
+clean_non_heat_stroke <-
+  encounters_no_other %>% 
+    dplyr::mutate(year = lubridate::year(d_event)) %>% 
+    janitor::get_dupes(studyid, year) %>% 
+    group_by(studyid, year) %>% 
+    dplyr::filter(any(hsi == "heat_stroke")) %>% 
+    dplyr::filter(!hsi %in% "heat_stroke") %>%
+    dplyr::ungroup() %>% 
+    dplyr::select(-dupe_count, -year)
+
+
+clean_df_step1 <-
+    encounters_no_other %>% 
+      dplyr::setdiff(clean_non_heat_stroke)  # remove rows that appear in `clean_non_heat_stroke`
+  
+ # Prioritize Hospitalizations
+ 
+clean_prioritize_hosp <-
+  clean_df_step1 %>% 
+      dplyr::mutate(year = lubridate::year(d_event)) %>% 
+        janitor::get_dupes(studyid, year) %>% 
+        group_by(studyid, year) %>% 
+        dplyr::filter(any(source == "INPATIENT")) %>% 
+        dplyr::filter(!source %in% "INPATIENT") %>%
+        dplyr::ungroup() %>% 
+        dplyr::select(-dupe_count, -year)
+
+clean_df_step2 <-
+    clean_df_step1 %>% 
+      dplyr::setdiff(clean_prioritize_hosp) 
+
+# Prioritize RME over ambulatory
+clean_prioritize_rme <-
+  clean_df_step2 %>% 
+      dplyr::mutate(year = lubridate::year(d_event)) %>% 
+        janitor::get_dupes(studyid, year) %>% 
+        group_by(studyid, year) %>% 
+        dplyr::filter(!any(source == "INPATIENT")) %>% # exclude strata with inpatient
+        dplyr::filter(any(source == "RME")) %>%
+        dplyr::filter(!source %in% "RME") %>%
+        dplyr::ungroup() %>% 
+        dplyr::select(-dupe_count, -year)
+
+clean_df_step3 <-
+    clean_df_step2 %>% 
+      dplyr::setdiff(clean_prioritize_rme) 
+
+
+# Retain first observation in subjectid-year stratum
+
+drop_repeat_vists <-
+  clean_df_step3 %>% 
+    dplyr::mutate(year = lubridate::year(d_event)) %>% 
+    janitor::get_dupes(studyid, year) %>%
+    dplyr::group_by(studyid, year) %>%
+    dplyr::arrange(d_event) %>% 
+    dplyr::filter(!row_number() == 1) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-dupe_count, -year)
+
+# Join with `persons` df for bmi
+encounters_casedef <-  
+  clean_df_step3 %>% 
+    dplyr::setdiff(drop_repeat_vists) %>% 
+    dplyr::left_join(persons, by = "studyid")
+
+# write_rds(encounters_casedef, "data/encounters_casedef.rds")
+
+
+
+# remove interim data cleaning objects
+rm(encounters_no_other, clean_df_step1, clean_df_step2, clean_df_step3, drop_repeat_vists, clean_non_heat_stroke, clean_prioritize_hosp, clean_prioritize_rme)
+```
+
+
+
+## Dataset Summaries: General
+```{r}
+
+Hmisc::describe(encounters)
+
+Hmisc::describe(persons)
+
+skimr::skim(dmisid)
+
+
+```
+
+
+
+## All encounters by date and type
+
+```{r}
+
+encounters %>%
+  group_by(d_event, source) %>% 
+  summarise(n = dplyr::n()) %>% 
+  ggplot(aes(x = d_event, y = n, color = source)) +
+    geom_point() +
+    geom_line() 
+
+
+encounters %>%
+  group_by(d_event, source) %>% 
+  summarise(n = dplyr::n()) %>% 
+  ggplot(aes(x = d_event, y = n)) +
+    geom_point() +
+    geom_line() +
+    facet_wrap(~source)
+
+
+# By Year-Month
+encounters %>% 
+  mutate(year_mon = zoo::as.yearmon(d_event)) %>% 
+  group_by(year_mon, source) %>% 
+  summarise(n = dplyr::n()) %>% 
+  ggplot(aes(x = year_mon, y = n, color = source)) +
+    geom_point() +
+    geom_line() 
+
+# By Year
+encounters %>% 
+  mutate(year = lubridate::year(d_event)) %>% 
+  group_by(year, source) %>% 
+  summarise(n = dplyr::n()) %>% 
+  ggplot(aes(x = year, y = n, color = source)) +
+    geom_point() +
+    geom_line()   
+```

@@ -1,6 +1,9 @@
 # Data folder
 /data
 
+# Packrat source tarballs
+/packrat/src/
+
 # History files
 .Rhistory
 .Rapp.history

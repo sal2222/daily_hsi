@@ -149,26 +149,7 @@ encounters_casedef %>%
 ```
 
 
-## Group by Installation
-1 Benning
-2 Bragg
-3 Lejune | Cherry Point
-4 Campbell
-5 Parris Island | Beaufort
-6 Jackson
-7 Pendleton
-8 Polk
-9 San Diego
-10 Hood
-11 Quantico
-12 Stewart
-13 Twentynine Palms
-14 Leonard Wood
-15 JBSA Lackland
-16 Elgin
-17 Riley
-18 Irwin
-
+## Clean data - installation names
 
 ```{r}
 # 485 distinct installation names
@@ -212,7 +193,14 @@ encounters_casedef <-
                   ) 
   
 
-encounters_casedef %>% 
+
+```
+
+
+## Summarize counts by installation
+
+```{r}
+ncounters_casedef %>% 
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) 
@@ -239,21 +227,145 @@ encounters_casedef %>%
     ungroup() %>% 
     mutate(cum_pct = cumsum(n) / sum(n),
            change_cum_pct = cum_pct - lag(cum_pct)) %>% 
-    dplyr::slice_head(n = 50) %>% View()
+    dplyr::slice_head(n = 50) 
 
 
-lag(1:10, 1)
-lead(1:10, 1)
+```
 
+
+# Nest data by installation
+
+Select from Top 27 (cutoff- include Eglin AFB/ next: Schofield, "Eastern Texas", Ft Belvoir); non-included CONUS sites contribute less than 0.7% each to cummulative percentage.
+Remove OCONUS locations (Okinawa, Fort Shafter)
+```{r}
 # Nest by installation
 
-encounters_top10 <-
+encounters_nest <-
   encounters_casedef %>%
     dplyr::group_by(installation_name) %>% 
     dplyr::group_nest() %>% 
     dplyr::mutate(n = map(data, nrow) %>% unlist()) %>% 
     dplyr::arrange(desc(n)) %>% 
-    dplyr::slice(1:10)
-  
+    dplyr::slice_head(n = 27) %>% 
+    dplyr::filter(!installation_name %in% c("OKINAWA", "FT SHAFTER")) %>% 
+    dplyr::filter(!is.na(installation_name))
+
 ```
 
+
+# Exploratory visualization of cases
+
+
+## All case definitions (all locations)
+
+```{r}
+
+# All casedef data, daily TS
+
+encounters_casedef %>% 
+  dplyr::group_by(d_event) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = d_event, y = n)) +
+    geom_line()  
+
+# All case def data, by year
+encounters_casedef %>% 
+  dplyr::group_by(year) %>%
+  filter(!year %in% "2020") %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = year, y = n)) +
+    geom_line()  
+
+# All case def data, by year, source
+
+encounters_casedef %>%
+  dplyr::group_by(year, source) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = year, y = n)) +
+    geom_line() +
+    facet_wrap(~source, ncol = 1)
+
+```
+
+## Selected CONUS installations (Top 24) 
+
+```{r}
+
+# Selected CONUS installations, cases by year
+
+encounters_nest %>% 
+  unnest(data) %>%
+  dplyr::group_by(installation_name, year) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = year, y = n, color = installation_name)) +
+    geom_point() +
+    geom_smooth(method = lm, alpha = 0.2)
+
+
+# Selected, daily TS
+
+encounters_nest %>% 
+  unnest(data) %>%  
+  dplyr::group_by(d_event, installation_name) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = d_event, y = n, color = installation_name)) +
+    geom_line()  
+
+
+# Selected, daily TS, by installation
+
+encounters_nest %>% 
+  unnest(data) %>%  
+  dplyr::group_by(d_event, installation_name) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = d_event, y = n, color = installation_name)) +
+    geom_line()  
+
+
+# Selected, daily TS
+
+encounters_nest %>% 
+  unnest(data) %>%  
+  dplyr::group_by(d_event) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = d_event, y = n)) +
+    geom_line()  
+
+
+
+# Selected, by year-mon
+
+encounters_nest %>% 
+  unnest(data) %>%
+  dplyr::mutate(yearmon = zoo::as.yearmon(d_event)) %>% 
+  dplyr::group_by(yearmon) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = yearmon, y = n)) +
+    geom_line()
+
+
+# Selected, by outcome source, year-month 
+
+encounters_nest %>% 
+  unnest(data) %>%
+  dplyr::mutate(yearmon = zoo::as.yearmon(d_event)) %>% 
+  dplyr::group_by(yearmon, source) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = yearmon, y = n)) +
+    geom_line() +
+    facet_wrap(~source, ncol = 1)
+
+# Selected, by outcome source, year
+
+encounters_nest %>% 
+  unnest(data) %>%
+  dplyr::group_by(year, source) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = year, y = n)) +
+    geom_line() +
+    facet_wrap(~source, ncol = 1)
+
+
+```
+
+Why is RME missing after ~2012?

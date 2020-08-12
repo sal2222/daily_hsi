@@ -1,5 +1,5 @@
 ---
-title: "installation_encounters"
+title: "strata"
 author: "SL"
 date: "6/12/2020"
 output: html_document
@@ -26,48 +26,6 @@ memory.limit(size = 56000)
    
 ```
 
-
-```{r}
-
-encounters_top10 %>% 
-  unnest(data) %>%
-  dplyr::group_by(installation_name, year) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = year, y = n, color = installation_name)) +
-    geom_point() +
-    geom_smooth(method = lm, alpha = 0.2)
-
-
-# All casedef data, daily TS
-
-encounters_casedef %>% 
-  dplyr::group_by(d_event) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = d_event, y = n)) +
-    geom_line()  
-
-
-# plot FT BRAGG daily TS
-encounters_top10 %>% 
-  dplyr::slice(1) %>% 
-  unnest(data) %>%
-  dplyr::group_by(d_event) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = d_event, y = n)) +
-    geom_line()  
-
-# plot FT BRAGG year-mon
-encounters_top10 %>% 
-  dplyr::slice(1) %>% 
-  unnest(data) %>%
-  dplyr::mutate(yearmon = zoo::as.yearmon(d_event)) %>% 
-  dplyr::group_by(yearmon) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = yearmon, y = n)) +
-    geom_line()
-
-
-```
 
 ## Case-crossover strata
 ```{r create_strata, eval = FALSE}

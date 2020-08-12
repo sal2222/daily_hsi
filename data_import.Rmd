@@ -59,7 +59,43 @@ dmisid <- readxl::read_excel("./data/DMISID_FY2019.xlsx") %>%
                 facility_branch = branch_of_service_authority_code)
 
 
+# Dataset Summaries: General
+
+Hmisc::describe(encounters)
+Hmisc::describe(persons)
+skimr::skim(dmisid)
+
+
+## Plot all encounters by date and type
+# 
+# encounters %>%
+#   group_by(d_event, source) %>% 
+#   summarise(n = dplyr::n()) %>% 
+#   ggplot(aes(x = d_event, y = n)) +
+#     geom_point() +
+#     geom_line() +
+#     facet_wrap(~source)
+# 
+# # By Year-Month
+# encounters %>% 
+#   mutate(year_mon = zoo::as.yearmon(d_event)) %>% 
+#   group_by(year_mon, source) %>% 
+#   summarise(n = dplyr::n()) %>% 
+#   ggplot(aes(x = year_mon, y = n, color = source)) +
+#     geom_point() +
+#     geom_line() 
+# 
+# # By Year
+# encounters %>% 
+#   mutate(year = lubridate::year(d_event)) %>% 
+#   group_by(year, source) %>% 
+#   summarise(n = dplyr::n()) %>% 
+#   ggplot(aes(x = year, y = n, color = source)) +
+#     geom_point() +
+#     geom_line()   
+
 ```
+
 
 
 ## Clean Data
@@ -71,8 +107,10 @@ For individuals who meet the case definition:
 • An individual is considered an incident case only once per calendar year.
 • For individuals with more than one heat illness diagnosis in a calendar year, heat stroke is prioritized over heat exhaustion.
 • Medical encounters for each individual within a calendar year are prioritized: hospitalizations > reportable medical events > ambulatory visits.
-```{r}
 
+
+```{r}
+# Inspect multiple encounters per studyid
 encounters %>% 
   group_by(studyid) %>% 
   count() %>% 
@@ -87,11 +125,86 @@ encounters %>%
   ggplot() +
     geom_histogram(aes(x = n), bins = 75)
 
+```
+
+
+## Classify by HSI category (stroke, exhaustion, other)
+
+- For Inpatient and Outpatient, use DX1/DX2 codes
+- For RME, need to use "dx1_name" - alphanumeric DX codes not used after 2013
+
+```{r}
 
 # Classify each encounter as heat stroke, heat exhaustion, or other
 
-encounters_diag <-
+# Classify RMEs
+
+  # Inspect RME classification names
+
+encounters %>% 
+  dplyr::filter(source %in% "RME") %>% 
+  count(dx1_name)
+  
+# 1 HEAT DEHYDRATION               7098  : heat_exhaustion (associated with DX 9923)
+# 2 Heat Exhaustion                2442  : heat_exhaustion
+# 3 HEAT EXHAUSTION                 356  : heat_exhaustion
+# 4 HEAT ILLNESS                    128  : other
+# 5 HEAT ILLNESS, HEAT EXHAUSTION  3184  : heat_exhaustion
+# 6 HEAT ILLNESS, HEAT INJURY      1236  : other
+# 7 HEAT ILLNESS, HEAT STROKE      2466  : heat_stroke
+# 8 Heat Stroke                     654  : heat_stroke
+# 9 HEAT STROKE                      45  : heat_stroke
+
+
+
+  # Inspect RME "other" - do pre-2013 observations include DX codes? 
+
+encounters %>% 
+  dplyr::filter(source %in% "RME", 
+                dx1_name %in% c("HEAT ILLNESS", "HEAT ILLNESS, HEAT INJURY" )) %>%  # 1,364 of 17,609 obs
+  count(dx1) #dx2 codes all NA
+
+  
+#   dx1       n
+#   <chr> <int>
+# 1 992       1
+# 2 9929    466
+# 3 NA      897
+
+# No, all remain classified as "other"(although many likly should have been entered as heat stroke or heat exhaustion)
+
+
+
+rme_diag <-
   encounters %>% 
+  dplyr::filter(source %in% "RME") %>% 
+  dplyr::mutate(hsi = dplyr::case_when(
+       str_detect(dx1_name, regex("exhaustion|dehydration", ignore_case = T))
+       ~ "heat_exhaustion",
+       str_detect(dx1_name, regex("stroke", ignore_case = T))
+       ~ "heat_stroke",
+       TRUE ~ "other"))
+    
+rme_diag %>% 
+    count(hsi)
+
+
+# Classify Inpatient and Outpatient
+  # Inspect classification codes
+encounters %>% 
+  dplyr::filter(!source %in% "RME") %>% 
+  count(dx1) %>% 
+  dplyr::arrange(desc(n))
+
+encounters %>% 
+  dplyr::filter(!source %in% "RME") %>% 
+  count(dx2) %>% 
+  dplyr::arrange(desc(n))
+
+
+in_out_diag <-
+  encounters %>% 
+   dplyr::filter(!source %in% "RME") %>% 
    dplyr::mutate(hsi = dplyr::case_when(
      str_detect(dx1, "T670XX[A-Z]") | str_detect(dx1, "9920") |
      str_detect(dx2, "T670XX[A-Z]") | str_detect(dx2, "9920")
@@ -101,6 +214,42 @@ encounters_diag <-
      ~ "heat_exhaustion",
         TRUE ~ "other")) 
 
+## Inspect inpatient/outpatient clasifications
+
+in_out_diag %>% 
+  group_by(source, hsi) %>% 
+    count(hsi)
+
+# in_out_diag %>%
+#   mutate(year = lubridate::year(d_event)) %>%
+#   group_by(year, source) %>%
+#   summarise(n = dplyr::n()) %>%
+#   ggplot(aes(x = year, y = n, color = source)) +
+#     geom_point() +
+#     geom_line()
+# 
+# in_out_diag %>%
+#   mutate(year = lubridate::year(d_event)) %>%
+#   group_by(year, source, hsi) %>%
+#   summarise(n = dplyr::n()) %>%
+#   ggplot(aes(x = year, y = n, color = source)) +
+#     geom_point() +
+#     geom_line() +
+#     facet_wrap(~hsi)
+
+
+
+```
+
+## Combine RME and In/out-patient HSI-classified datasets
+
+```{r}
+
+encounters_diag <-
+  in_out_diag %>%   # 121,796 obs
+    dplyr::bind_rows(rme_diag) #17,609 obs
+
+encounters_diag # 139,405 obs
 
 encounters_diag %>% 
   count(hsi)
@@ -109,9 +258,39 @@ encounters_diag %>%
   dplyr::group_by(source) %>% 
   count(hsi)
 
+encounters_diag %>% 
+  dplyr::group_by(source, hsi, year = lubridate::year(d_event)) %>%
+  count(source) 
+
+# encounters_diag %>%
+#   mutate(year = lubridate::year(d_event)) %>%
+#   group_by(year, source) %>%
+#   summarise(n = dplyr::n()) %>%
+#   ggplot(aes(x = year, y = n, color = source)) +
+#     geom_point() +
+#     geom_line()
+# 
+# encounters_diag %>%
+#   mutate(year = lubridate::year(d_event)) %>%
+#   group_by(year, source, hsi) %>%
+#   summarise(n = dplyr::n()) %>%
+#   ggplot(aes(x = year, y = n, color = hsi)) +
+#     geom_point() +
+#     geom_line() +
+#     facet_wrap(~source, ncol = 1)
+
+
+```
+
+
+## Apply case definitions
+
+```{r}
+
 # Apply case definition: 
 #   considered an incident case only once per calendar year
 #   heat stroke is prioritized over heat exhaustion
+#   includes only heat stroke and heat exhaustion - will retain "other" in datasets at this stage
 
 
 # Identify observations to remove: 
@@ -120,41 +299,60 @@ encounters_diag %>%
 #   hospitalizations > reportable medical events > ambulatory visits
 
 
-# Remove `other` hsi observations 
-
-encounters_no_other <-
-  encounters_diag %>% 
-    dplyr::filter(!hsi %in% "other")
 
 
 # Remove `heat_exhaustion` or `other` if `heat_stroke` in studyid/year stratum
 
 clean_non_heat_stroke <-
-  encounters_no_other %>% 
+  encounters_diag %>% 
     dplyr::mutate(year = lubridate::year(d_event)) %>% 
-    janitor::get_dupes(studyid, year) %>% 
+    janitor::get_dupes(studyid, year) %>% # extract sets of instances with > 1 obs per studyid per year
     group_by(studyid, year) %>% 
-    dplyr::filter(any(hsi == "heat_stroke")) %>% 
-    dplyr::filter(!hsi %in% "heat_stroke") %>%
+    dplyr::filter(any(hsi == "heat_stroke")) %>% # filter strata that include a heat stroke obs
+    dplyr::filter(!hsi %in% "heat_stroke") %>% # filter all non- heat stroke obs
     dplyr::ungroup() %>% 
     dplyr::select(-dupe_count, -year)
 
+clean_non_heat_stroke # obs to be removed
+
 
 clean_df_step1 <-
-    encounters_no_other %>% 
+    encounters_diag %>% 
       dplyr::setdiff(clean_non_heat_stroke)  # remove rows that appear in `clean_non_heat_stroke`
+
+# Inspect
+
+clean_df_step1 %>% 
+  count(hsi)
+
+clean_df_step1 %>% 
+  dplyr::group_by(source) %>% 
+  count(hsi)
+
+# clean_df_step1 %>%
+#   mutate(year = lubridate::year(d_event)) %>%
+#   group_by(year, source) %>%
+#   summarise(n = dplyr::n()) %>%
+#   ggplot(aes(x = year, y = n, color = source)) +
+#     geom_point() +
+#     geom_line()
+
+
+
   
  # Prioritize Hospitalizations
  
 clean_prioritize_hosp <-
   clean_df_step1 %>% 
       dplyr::mutate(year = lubridate::year(d_event)) %>% 
-        janitor::get_dupes(studyid, year) %>% 
+        janitor::get_dupes(studyid, year) %>% # extract sets of instances with > 1 obs per studyid per year
         group_by(studyid, year) %>% 
         dplyr::filter(any(source == "INPATIENT")) %>% 
         dplyr::filter(!source %in% "INPATIENT") %>%
         dplyr::ungroup() %>% 
         dplyr::select(-dupe_count, -year)
+
+clean_prioritize_hosp # obs to be removed
 
 clean_df_step2 <-
     clean_df_step1 %>% 
@@ -204,57 +402,15 @@ rm(encounters_no_other, clean_df_step1, clean_df_step2, clean_df_step3, drop_rep
 ```
 
 
-
-## Dataset Summaries: General
+## Plot case definition dataset (including "other" HSI)
 ```{r}
-
-Hmisc::describe(encounters)
-
-Hmisc::describe(persons)
-
-skimr::skim(dmisid)
-
-
-```
-
-
-
-## All encounters by date and type
-
-```{r}
-
-encounters %>%
-  group_by(d_event, source) %>% 
+encounters_casedef  %>% 
+  mutate(year = lubridate::year(d_event)) %>% 
+  group_by(year, source, hsi) %>% 
   summarise(n = dplyr::n()) %>% 
-  ggplot(aes(x = d_event, y = n, color = source)) +
-    geom_point() +
-    geom_line() 
-
-
-encounters %>%
-  group_by(d_event, source) %>% 
-  summarise(n = dplyr::n()) %>% 
-  ggplot(aes(x = d_event, y = n)) +
+  ggplot(aes(x = year, y = n, color = hsi)) +
     geom_point() +
     geom_line() +
-    facet_wrap(~source)
-
-
-# By Year-Month
-encounters %>% 
-  mutate(year_mon = zoo::as.yearmon(d_event)) %>% 
-  group_by(year_mon, source) %>% 
-  summarise(n = dplyr::n()) %>% 
-  ggplot(aes(x = year_mon, y = n, color = source)) +
-    geom_point() +
-    geom_line() 
-
-# By Year
-encounters %>% 
-  mutate(year = lubridate::year(d_event)) %>% 
-  group_by(year, source) %>% 
-  summarise(n = dplyr::n()) %>% 
-  ggplot(aes(x = year, y = n, color = source)) +
-    geom_point() +
-    geom_line()   
+  facet_wrap(~source)
 ```
+

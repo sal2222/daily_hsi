@@ -67,10 +67,11 @@ dmisid %>%
   group_by(dmis_id) %>% 
   count()
 
-dmisid %>% View()
+dmisid
 ```
 
 ## Link to encounters
+
 ```{r}
 # Read-in `encounters_casedef`
 
@@ -200,7 +201,7 @@ encounters_casedef <-
 ## Summarize counts by installation
 
 ```{r}
-ncounters_casedef %>% 
+encounters_casedef %>% 
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) 
@@ -250,26 +251,32 @@ encounters_nest <-
     dplyr::filter(!installation_name %in% c("OKINAWA", "FT SHAFTER")) %>% 
     dplyr::filter(!is.na(installation_name))
 
+
+
+# write_rds(encounters_nest, "data/encounters_nest.rds")
+
 ```
 
 
 # Exploratory visualization of cases
 
 
-## All case definitions (all locations)
+## Plots for all case definitions (all locations)
 
 ```{r}
 
 # All casedef data, daily TS
 
-encounters_casedef %>% 
+encounters_casedef %>%
+  dplyr::filter(!hsi %in% "other") %>% 
   dplyr::group_by(d_event) %>% 
   dplyr::summarise(n = n()) %>% 
   ggplot(aes(x = d_event, y = n)) +
     geom_line()  
 
 # All case def data, by year
-encounters_casedef %>% 
+encounters_casedef %>%
+  dplyr::filter(!hsi %in% "other") %>% 
   dplyr::group_by(year) %>%
   filter(!year %in% "2020") %>% 
   dplyr::summarise(n = n()) %>% 
@@ -279,15 +286,16 @@ encounters_casedef %>%
 # All case def data, by year, source
 
 encounters_casedef %>%
-  dplyr::group_by(year, source) %>% 
+  dplyr::filter(!hsi %in% "other") %>% 
+  dplyr::group_by(year, source, hsi) %>% 
   dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = year, y = n)) +
+  ggplot(aes(x = year, y = n, color = hsi)) +
     geom_line() +
     facet_wrap(~source, ncol = 1)
 
 ```
 
-## Selected CONUS installations (Top 24) 
+## Plots for selected CONUS installations (Top 24) 
 
 ```{r}
 
@@ -295,6 +303,7 @@ encounters_casedef %>%
 
 encounters_nest %>% 
   unnest(data) %>%
+  dplyr::filter(!hsi %in% "other") %>% 
   dplyr::group_by(installation_name, year) %>% 
   dplyr::summarise(n = n()) %>% 
   ggplot(aes(x = year, y = n, color = installation_name)) +
@@ -302,52 +311,46 @@ encounters_nest %>%
     geom_smooth(method = lm, alpha = 0.2)
 
 
-# Selected, daily TS
-
-encounters_nest %>% 
-  unnest(data) %>%  
-  dplyr::group_by(d_event, installation_name) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = d_event, y = n, color = installation_name)) +
-    geom_line()  
-
-
-# Selected, daily TS, by installation
-
-encounters_nest %>% 
-  unnest(data) %>%  
-  dplyr::group_by(d_event, installation_name) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = d_event, y = n, color = installation_name)) +
-    geom_line()  
-
-
-# Selected, daily TS
-
-encounters_nest %>% 
-  unnest(data) %>%  
-  dplyr::group_by(d_event) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = d_event, y = n)) +
-    geom_line()  
+# # Selected, daily TS, by installation
+# 
+# encounters_nest %>%
+#   unnest(data) %>%  
+#   dplyr::filter(!hsi %in% "other") %>%
+#   dplyr::group_by(d_event, installation_name) %>% 
+#   dplyr::summarise(n = n()) %>% 
+#   ggplot(aes(x = d_event, y = n, color = installation_name)) +
+#     geom_line()  
 
 
 
-# Selected, by year-mon
+# # Selected, daily TS
+# 
+# encounters_nest %>% 
+#   unnest(data) %>%  
+#   dplyr::filter(!hsi %in% "other") %>%
+#   dplyr::group_by(d_event) %>% 
+#   dplyr::summarise(n = n()) %>% 
+#   ggplot(aes(x = d_event, y = n)) +
+#     geom_line()  
 
-encounters_nest %>% 
-  unnest(data) %>%
-  dplyr::mutate(yearmon = zoo::as.yearmon(d_event)) %>% 
-  dplyr::group_by(yearmon) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = yearmon, y = n)) +
-    geom_line()
+
+# # Selected, by year-mon
+# 
+# encounters_nest %>% 
+#   unnest(data) %>%
+#   dplyr::filter(!hsi %in% "other") %>%
+#   dplyr::mutate(yearmon = zoo::as.yearmon(d_event)) %>% 
+#   dplyr::group_by(yearmon) %>% 
+#   dplyr::summarise(n = n()) %>% 
+#   ggplot(aes(x = yearmon, y = n)) +
+#     geom_line()
 
 
 # Selected, by outcome source, year-month 
 
 encounters_nest %>% 
   unnest(data) %>%
+  dplyr::filter(!hsi %in% "other") %>%
   dplyr::mutate(yearmon = zoo::as.yearmon(d_event)) %>% 
   dplyr::group_by(yearmon, source) %>% 
   dplyr::summarise(n = n()) %>% 
@@ -355,17 +358,18 @@ encounters_nest %>%
     geom_line() +
     facet_wrap(~source, ncol = 1)
 
-# Selected, by outcome source, year
-
-encounters_nest %>% 
-  unnest(data) %>%
-  dplyr::group_by(year, source) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = year, y = n)) +
-    geom_line() +
-    facet_wrap(~source, ncol = 1)
+# # Selected, by outcome source, year
+# 
+# encounters_nest %>% 
+#   unnest(data) %>%
+#   dplyr::filter(!hsi %in% "other") %>%
+#   dplyr::group_by(year, source) %>% 
+#   dplyr::summarise(n = n()) %>% 
+#   ggplot(aes(x = year, y = n)) +
+#     geom_line() +
+#     facet_wrap(~source, ncol = 1)
 
 
 ```
 
-Why is RME missing after ~2012?
+

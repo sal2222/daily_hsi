@@ -40,9 +40,6 @@ encounters_nest <-
   read_rds("data/encounters_nest.rds") 
     
 
-encounters_nest %>% 
-  unnest(data) %>% 
-  
 ```
 
 # Assign referent/control dates for each case
@@ -56,11 +53,11 @@ encounters_nest %>%
 
 ref_dates_fun <- function(d_event) {
 
-    possible_refs <- d_event - lubridate::days(30):d_event + lubridate::days(30)
+    possible_refs <- as_date((d_event - lubridate::days(30)):(d_event + lubridate::days(30)))   # restrict to +/- 30 day period
 
-    possible_refs[month(possible_refs) == lubridate::month(d_event)
-                        & wday(possible_refs) == wday(d_event)
-                        & d_event != possible_refs]
+    possible_refs[month(possible_refs) == lubridate::month(d_event) # match by month 
+                        & wday(possible_refs) == wday(d_event) # match by day of week
+                        & d_event != possible_refs] # control date cannot be the same as case date
 }
 
 
@@ -70,19 +67,45 @@ ref_dates_fun <- function(d_event) {
 
 ```{r}
 
-case_controls <-
+# Map function to create `control_dates` list-column
+
+case_controls_nest <-
   encounters_nest %>% 
     unnest(data) %>% 
-    mutate(control_dates = furrr::future_map(.x = d_event, ref_dates_fun))
+    mutate(control_date = furrr::future_map(.x = d_event, ref_dates_fun))
+
+
+#write_rds(case_controls_nest, "data/case_controls_nest.rds")
 
 
 
+
+# Dataframe of controls, 
+  # create column, case = 0
+  # can link to cases by studyid and d_event
+   
+controls <-
+  case_controls_nest %>%
+    unnest(control_date) %>%
+    mutate(case = 0)
+
+# Dataframe of cases
+
+cases <-
+  case_controls_nest %>%
+    mutate(control_date = NA,
+           case = 1)
   
-  
 
+  # Join case and control dataframes
 
+case_control_df <-
+  cases %>% 
+    bind_rows(controls) 
 
-
+#write_rds(case_control_df, "data/case_control_df.rds")
+#
 ```
+
 
 

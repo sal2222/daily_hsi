@@ -113,5 +113,7 @@ case_control_df <-
 
 # write_rds(case_control_df, "data/case_control_df.rds")
 
+164744/48160 # 3.42 control days per case
+
 ```
 

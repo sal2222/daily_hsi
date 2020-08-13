@@ -78,6 +78,11 @@ case_controls_nest <-
 #write_rds(case_controls_nest, "data/case_controls_nest.rds")
 
 
+```
+
+
+
+```{r}
 
 
 # Dataframe of controls, 
@@ -101,11 +106,12 @@ cases <-
 
 case_control_df <-
   cases %>% 
-    bind_rows(controls) 
+    bind_rows(controls) %>% 
+    mutate(date =
+             case_when(case == 1 ~ d_event,
+                       case == 0 ~ control_date))
 
-#write_rds(case_control_df, "data/case_control_df.rds")
-#
+# write_rds(case_control_df, "data/case_control_df.rds")
+
 ```
-
-
 

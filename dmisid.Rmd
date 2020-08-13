@@ -49,17 +49,18 @@ dmisid <-
   dplyr::select(-id) %>% 
   dplyr::mutate_all(list(~na_if(.,""))) # convert blank values to `NA`
 
-
-dmisid %>% 
-    filter(is.na(installation_name))
-
-dmisid %>% 
-    filter(is.na(facility_zipcode))
-
-dmisid %>% 
-    filter(is.na(installation_name) & is.na(facility_zipcode))
-
 # Inspect missing values
+
+# dmisid %>% 
+#     filter(is.na(installation_name))
+# 
+# dmisid %>% 
+#     filter(is.na(facility_zipcode))
+
+# dmisid %>% 
+#     filter(is.na(installation_name) & is.na(facility_zipcode))
+
+
 #dmisid %>% 
 #  naniar::vis_miss()  
 
@@ -67,7 +68,15 @@ dmisid %>%
   group_by(dmis_id) %>% 
   count()
 
-dmisid
+# Keep only one observation for each dmis_id
+
+dmisid_distinct <-
+  dmisid %>%
+    arrange(desc(dmis_fy)) %>% 
+    distinct(dmis_id, .keep_all = TRUE) 
+  
+# dmisid_distinct %>%   
+#   count(dmis_fy)
 ```
 
 ## Link to encounters
@@ -80,21 +89,21 @@ encounters_casedef <-
   read_rds("data/encounters_casedef.rds") 
     
 
-# Identify and remove observations with no dmisid
-
-no_dmisid_casedef <-
-  encounters_casedef %>% 
-  filter(is.na(dmisid))
-
-# Missing dmisid (location) summary
-Hmisc::describe(no_dmisid_casedef)
+# # Identify and remove observations with no dmisid
+# 
+# no_dmisid_casedef <-
+#   encounters_casedef %>% 
+#   filter(is.na(dmisid))
+# 
+# # Missing dmisid (location) summary
+# Hmisc::describe(no_dmisid_casedef)
 
 
 # Filter out obs missing `dmidid`, convert N prefixes in `dmisid` to "0" 
 
 encounters_casedef <-
  encounters_casedef %>% 
-    filter(!is.na(dmisid)) %>%
+    filter(!is.na(dmisid)) %>% # filter out observations with no dmisid
     dplyr::mutate(dmisid = stringr::str_replace_all(string = dmisid, pattern = "N", replacement = "0")) %>% 
     dplyr::mutate(year = lubridate::year(d_event))
 
@@ -102,11 +111,12 @@ encounters_casedef <-
 
 # Join encounters with DMISID based on table key for each FY
 
+# encounters_casedef <-
+#   list(encounters_casedef, dmisid) %>% reduce(left_join, by = c("dmisid" = "dmis_id"))
 
-
-encounters_casedef <-
-  list(encounters_casedef, dmisid) %>% reduce(left_join, by = c("dmisid" = "dmis_id"))
-
+encounters_casedef_inst <-
+  encounters_casedef %>% 
+    left_join(dmisid, by = c("dmisid" = "dmis_id")) 
 
 encounters_casedef
 

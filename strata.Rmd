@@ -7,11 +7,13 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 
 library(tidyverse)
 library(purrr)
+library(furrr)
 library(forecast)
 library(dlnm)
 library(remotes)
@@ -19,10 +21,13 @@ library(case.crossover)
 #remotes::install_github("RyanGan/case.crossover")
 library(lubridate)
 
-memory.limit()
+
+
+plan(multiprocess) # for use with furrr::future_map; run in parallel
 
 # increase memory storage capacity
-memory.limit(size = 56000)
+# memory.limit()
+# memory.limit(size = 56000)
    
 ```
 
@@ -36,112 +41,48 @@ encounters_nest <-
     
 
 encounters_nest %>% 
-  unnest(data)
-    
+  unnest(data) %>% 
+  
+```
+
+# Assign referent/control dates for each case
+
+## Function for control days
+```{r}
+
+# https://stackoverflow.com/questions/20676779/create-a-case-control-pair-for-time-stratified-case-crossover-design used as guide for function
+  # Referent dates must have the same month and wday as event
 
 
+ref_dates_fun <- function(d_event) {
 
-# Bragg strata
+    possible_refs <- d_event - lubridate::days(30):d_event + lubridate::days(30)
 
-bragg_strata <-
-  encounters_top10 %>% 
-    dplyr::slice(1) %>% 
-    unnest(data) %>%
-    dplyr::mutate(id = paste(studyid, d_event, sep = "_") ) %>% 
-    case.crossover::casecross(data = ., id = "id" , date = "d_event", covariate = F, period = "month") %>% 
-  as_tibble() 
+    possible_refs[month(possible_refs) == lubridate::month(d_event)
+                        & wday(possible_refs) == wday(d_event)
+                        & d_event != possible_refs]
+}
 
-write_rds(bragg_strata, "data/bragg_strata.rds")
+
+```
+
+## Map function for control days over case dates
+
+```{r}
+
+case_controls <-
+  encounters_nest %>% 
+    unnest(data) %>% 
+    mutate(control_dates = furrr::future_map(.x = d_event, ref_dates_fun))
+
 
 
   
+  
+
+
+
 
 ```
 
-
-```{r}
-
-### Create strata for case-crossover
-# Identify  control days for each case day and assign exposures for each day  
-
-# https://rdrr.io/github/RyanGan/case.crossover/man/casecross.html
-
-
-# casecross(data, id, date, covariate = F, period = "month")
-# Function creates a time-stratified case-crossover dataframe from a case-only dataframe 
-# where the outcome on a particular date can be compared to referent periods on the same day of the week.
-# 
-
-
-
-casecross <- function(data, id, date, covariate=F, period = "month"){
-  # if id value is given
-  if (is.character(id)) {
-    # vector of ids
-    id_vec <- data[,id]
-  } else {# else if no value provided, create an id variable
-    id_vec <- seq(1, nrow(data), by = 1)
-  }
-  # vector of admit dates joined to the id vector
-  event_date <- data[,date]
-  id_date <- data.frame(id_vec, event_date)
-
-  # find ref dates
-  date_list <- apply(id_date, 1, function(x) {
-    # output event date
-    event_date <- as.Date(x[2])
-    # day of week
-    day_week <- wday(event_date)
-    # create sequence of dates based on ref period
-    date_seq <- seq.Date(floor_date(event_date, unit = period),
-                         ceiling_date(event_date, unit = period), "days")
-    # find dates on the same day of event date
-    ref_dates <- as.character(date_seq[wday(date_seq) == day_week])
-
-    # identifier
-    identifier <- rep(x[1], length(ref_dates))
-    # outcome
-    outcome <- ifelse(as.Date(ref_dates) == x[2],1,0)
-    id_date_vec <- cbind(identifier, ref_dates, outcome)
-  })
-  # bind lists together
-  strat_data <- do.call(rbind, date_list)
-  # remove row names
-  rownames(strat_data) <- NULL
-  colnames(strat_data) <- c("id", date, "outcome")
-  # convert to dataframe
-  strat_data <- data.frame(strat_data)
-  # if covariates provided, join to the dataframe
-  if (is.character(covariate)) {
-    cov_data <- as.data.frame(cbind(id_vec, data[,covariate]))
-    # names of cov data
-    colnames(cov_data) <- c("id", covariate)
-    # conver identifier to character to merge
-    cov_data$id <- as.character(cov_data$id)
-    # merge with ts_data
-    strat_data <- merge(strat_data, cov_data, by = "id")
-  }
-  # return dataframe
-  return(strat_data)
-} # end function
-
-```
-
-
-```{r}
-
-```
-
-
-
-
-
-
-```{r}
-bragg_strata <- 
-  read_rds("data/bragg_strata.rds")
-
-bragg_strata %>%
-  dplyr::mutate(d_event = as.Date(d_event)) 
-```
 

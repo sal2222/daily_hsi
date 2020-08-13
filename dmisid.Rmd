@@ -116,9 +116,9 @@ encounters_casedef <-
 
 encounters_casedef_inst <-
   encounters_casedef %>% 
-    left_join(dmisid, by = c("dmisid" = "dmis_id")) 
+    left_join(dmisid_distinct, by = c("dmisid" = "dmis_id")) 
 
-encounters_casedef
+encounters_casedef_inst
 
 
 # Inspect missing values
@@ -128,7 +128,7 @@ encounters_casedef
 
 
 no_dmisid_match <-
-  encounters_casedef %>% 
+  encounters_casedef_inst %>% 
   filter(is.na(installation_name))
 
 no_dmisid_match %>% 
@@ -143,18 +143,18 @@ no_dmisid_match %>%
   arrange(desc(n))
 
 # DMISID 6133 not in DMIS reference tables, 244 case def observations (Marines)
-encounters_casedef %>% 
+encounters_casedef_inst %>% 
   filter(dmisid %in% "6133") %>% Hmisc::describe()
 
-encounters_casedef %>% 
+encounters_casedef_inst %>% 
   group_by(installation_name) %>% 
   count() %>% 
   arrange(desc(n))
 
-encounters_casedef %>% 
+encounters_casedef_inst %>% 
   dplyr::filter(is.na(installation_name)) #965 missing
 
-encounters_casedef %>% 
+encounters_casedef_inst %>% 
   dplyr::filter(is.na(facility_zipcode)) #3,850 missing
 
 ```
@@ -169,8 +169,8 @@ encounters_casedef %>%
 # remove `.`, eg `FT.`; 461 distinct,
 # change `FORT` to `FT`, 455 distinct
 
-encounters_casedef <-
-  encounters_casedef %>% 
+encounters_casedef_inst <-
+  encounters_casedef_inst %>% 
     mutate(installation_name = stringr::str_remove(installation_name, "\\."),
            installation_name = stringr::str_replace(installation_name, "FORT", "FT"),# also changes "BEAUFORT"
            installation_name = stringr::str_replace(installation_name, "BEAUFT", "BEAUFORT"))
@@ -186,8 +186,8 @@ encounters_casedef <-
 # NH TWENTY-NINE PALMS
 # SAN DIEGO NH
 
-encounters_casedef <-
-  encounters_casedef %>% 
+encounters_casedef_inst <-
+  encounters_casedef_inst %>% 
     dplyr::mutate(installation_name =
               dplyr::recode(installation_name, 
                   `CHERRY POINT` = "CAMP LEJEUNE",
@@ -211,14 +211,14 @@ encounters_casedef <-
 ## Summarize counts by installation
 
 ```{r}
-encounters_casedef %>% 
+encounters_casedef_inst %>% 
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) 
 
 
 # Top 100 installations
-encounters_casedef %>% 
+encounters_casedef_inst %>% 
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) %>% 
@@ -231,7 +231,7 @@ encounters_casedef %>%
 # Cumulative percentages
 
 
-encounters_casedef %>% 
+encounters_casedef_inst %>% 
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) %>% 
@@ -252,7 +252,7 @@ Remove OCONUS locations (Okinawa, Fort Shafter)
 # Nest by installation
 
 encounters_nest <-
-  encounters_casedef %>%
+  encounters_casedef_inst %>%
     dplyr::group_by(installation_name) %>% 
     dplyr::group_nest() %>% 
     dplyr::mutate(n = map(data, nrow) %>% unlist()) %>% 
@@ -277,7 +277,7 @@ encounters_nest <-
 
 # All casedef data, daily TS
 
-encounters_casedef %>%
+encounters_casedef_inst %>%
   dplyr::filter(!hsi %in% "other") %>% 
   dplyr::group_by(d_event) %>% 
   dplyr::summarise(n = n()) %>% 
@@ -285,7 +285,7 @@ encounters_casedef %>%
     geom_line()  
 
 # All case def data, by year
-encounters_casedef %>%
+encounters_casedef_inst %>%
   dplyr::filter(!hsi %in% "other") %>% 
   dplyr::group_by(year) %>%
   filter(!year %in% "2020") %>% 
@@ -295,7 +295,7 @@ encounters_casedef %>%
 
 # All case def data, by year, source
 
-encounters_casedef %>%
+encounters_casedef_inst %>%
   dplyr::filter(!hsi %in% "other") %>% 
   dplyr::group_by(year, source, hsi) %>% 
   dplyr::summarise(n = n()) %>% 

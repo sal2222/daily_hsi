@@ -203,7 +203,7 @@ encounters_casedef_inst <-
                   `SAN DIEGO NH` = "SAN DIEGO")  
                   ) 
   
-
+# write_rds(encounters_casedef_inst, "data/encounters_casedef_inst.rds")
 
 ```
 
@@ -211,6 +211,10 @@ encounters_casedef_inst <-
 ## Summarize counts by installation
 
 ```{r}
+
+# encounters_casedef_inst <-
+#   read_rds("data/encounters_casedef_inst.rds")
+
 encounters_casedef_inst %>% 
     group_by(installation_name) %>% 
     count() %>% 

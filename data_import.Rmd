@@ -395,6 +395,8 @@ encounters_casedef <-
 
 # write_rds(encounters_casedef, "data/encounters_casedef.rds")
 
+# encounters_casedef <-  
+#   read_rds("data/encounters_casedef.rds")
 
 
 # remove interim data cleaning objects

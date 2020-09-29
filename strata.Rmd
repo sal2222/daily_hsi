@@ -117,3 +117,13 @@ case_control_df <-
 
 ```
 
+
+```{r}
+
+case_control_df <-
+  read_rds("data/case_control_df.rds")
+
+case_control_df %>% 
+  count(installation_name) %>% View()
+```
+

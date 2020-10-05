@@ -224,6 +224,7 @@ encounters_casedef_inst %>%
 
 # Top 100 installations
 encounters_casedef_inst %>% 
+     dplyr::filter(!hsi %in% "other") %>% 
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) %>% 
@@ -232,18 +233,31 @@ encounters_casedef_inst %>%
   ggplot(aes(x = reorder(installation_name, -n), y = n)) +
     geom_bar(stat = "identity")
 
+encounters_casedef_inst %>% 
+     dplyr::filter(!hsi %in% "other") %>% 
+    group_by(installation_name) %>% 
+    count() %>% 
+    arrange(desc(n)) %>% 
+    ungroup() %>% 
+    dplyr::slice_head(n = 27) %>% 
+  ggplot(aes(x = reorder(installation_name, -n), y = n)) +
+    geom_bar(stat = "identity") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  
 
 # Cumulative percentages
 
 
 encounters_casedef_inst %>% 
+    dplyr::filter(!hsi %in% "other") %>% 
     group_by(installation_name) %>% 
     count() %>% 
     arrange(desc(n)) %>% 
     ungroup() %>% 
     mutate(cum_pct = cumsum(n) / sum(n),
            change_cum_pct = cum_pct - lag(cum_pct)) %>% 
-    dplyr::slice_head(n = 50) 
+    dplyr::slice_head(n = 30) 
 
 
 ```
@@ -292,7 +306,8 @@ encounters_casedef_inst %>%
   dplyr::group_by(d_event) %>% 
   dplyr::summarise(n = n()) %>% 
   ggplot(aes(x = d_event, y = n)) +
-    geom_line()  
+    geom_line() +
+  theme_bw()
 
 # All case def data, by year
 encounters_casedef_inst %>%
@@ -319,16 +334,6 @@ encounters_casedef_inst %>%
 
 ```{r}
 
-# Selected CONUS installations, cases by year
-
-encounters_nest %>% 
-  unnest(data) %>%
-  dplyr::filter(!hsi %in% "other") %>% 
-  dplyr::group_by(installation_name, year) %>% 
-  dplyr::summarise(n = n()) %>% 
-  ggplot(aes(x = year, y = n, color = installation_name)) +
-    geom_point() +
-    geom_smooth(method = lm, alpha = 0.2)
 
 
 # # Selected, daily TS, by installation
@@ -376,7 +381,24 @@ encounters_nest %>%
   dplyr::summarise(n = n()) %>% 
   ggplot(aes(x = yearmon, y = n)) +
     geom_line() +
-    facet_wrap(~source, ncol = 1)
+    facet_wrap(~source, ncol = 1) +
+  theme_bw()
+
+
+
+# Selected CONUS installations, cases by year
+
+encounters_nest %>% 
+  unnest(data) %>%
+  dplyr::filter(!hsi %in% "other") %>% 
+  filter(year %in% 1998:2019) %>% 
+  dplyr::group_by(installation_name, year) %>% 
+  dplyr::summarise(n = n()) %>% 
+  ggplot(aes(x = year, y = n, color = installation_name)) +
+    geom_point() +
+    geom_smooth(method = lm, alpha = 0.2) +
+    theme_bw()
+
 
 # # Selected, by outcome source, year
 # 

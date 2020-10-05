@@ -414,5 +414,17 @@ encounters_casedef  %>%
     geom_point() +
     geom_line() +
   facet_wrap(~source)
+
+
+encounters_casedef %>% 
+  ggplot(aes(x = hsi)) +
+    geom_bar(stat = "count") + 
+    stat_count(geom = "text", colour = "white", size = 5,
+    aes(label = ..count..),position = position_stack(vjust = 0.5)) +
+    coord_flip() +
+    theme_bw() +
+    theme(axis.text.y = element_text(size = 15)) 
+
+
 ```
 

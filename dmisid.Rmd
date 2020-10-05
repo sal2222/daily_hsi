@@ -14,6 +14,7 @@ library(naniar)
 library(purrr)
 library(janitor)
 library(Hmisc)
+library(kableExtra)
 
 
 ```
@@ -250,24 +251,29 @@ encounters_casedef_inst %>%
 
 # Nest data by installation
 
-Select from Top 27 (cutoff- include Eglin AFB/ next: Schofield, "Eastern Texas", Ft Belvoir); non-included CONUS sites contribute less than 0.7% each to cummulative percentage.
+Select from Top 27 (cutoff- include Eglin AFB/ next: Schofield, "Eastern Texas", Ft Belvoir); non-included CONUS sites contribute less than 0.7% each to cumulative percentage.
 Remove OCONUS locations (Okinawa, Fort Shafter)
 ```{r}
 # Nest by installation
 
 encounters_nest <-
   encounters_casedef_inst %>%
+    dplyr::filter(!hsi %in% "other") %>%  # include only heat stroke and heat exhaustion
     dplyr::group_by(installation_name) %>% 
     dplyr::group_nest() %>% 
     dplyr::mutate(n = map(data, nrow) %>% unlist()) %>% 
     dplyr::arrange(desc(n)) %>% 
-    dplyr::slice_head(n = 27) %>% 
-    dplyr::filter(!installation_name %in% c("OKINAWA", "FT SHAFTER")) %>% 
-    dplyr::filter(!is.na(installation_name))
+    dplyr::slice_head(n = 30) %>% View()
+    dplyr::filter(!installation_name %in% c("OKINAWA", "FT SHAFTER")) %>% # remove OCONUS
+    dplyr::filter(!is.na(installation_name)) # remove installation NA
 
 
+encounters_nest %>% 
+  dplyr::select(installation_name, n) %>% 
+  knitr::kable() %>% 
+  kableExtra::kable_styling(full_width = FALSE) 
 
-# write_rds(encounters_nest, "data/encounters_nest.rds")
+ #write_rds(encounters_nest, "data/encounters_nest.rds")
 
 ```
 

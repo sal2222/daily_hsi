@@ -127,3 +127,37 @@ case_control_df %>%
   count(installation_name) %>% View()
 ```
 
+
+
+
+# Investigate 2019 decline in cases
+```{r}
+
+encounters_nest %>% 
+  slice(1:10) %>% 
+  unnest(data) %>% 
+  filter(year %in% 2016:2019) %>%
+  group_by(installation_name, year) %>% 
+   count(hsi) %>% 
+     filter(hsi %in% "heat_stroke") %>% 
+  ggplot(aes(x = year, y = n, color = installation_name)) +
+      geom_point() +
+      geom_line() +
+  theme_bw() +
+  ggtitle("Heat stroke")
+  
+
+encounters_nest %>% 
+  slice(1:10) %>% 
+  unnest(data) %>% 
+  filter(year %in% 2016:2019) %>%
+  group_by(installation_name, year) %>% 
+   count(hsi) %>% 
+     filter(hsi %in% "heat_exhaustion") %>% 
+  ggplot(aes(x = year, y = n, color = installation_name)) +
+      geom_point() +
+      geom_line() +
+  theme_bw() +
+  ggtitle("Heat exhaustion")
+```
+

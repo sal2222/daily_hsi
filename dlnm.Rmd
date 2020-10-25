@@ -1,0 +1,556 @@
+---
+title: "dlnm"
+author: "SL"
+date: "10/19/2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(survival)
+library(splines)
+library(broom)
+library(dlnm)
+library(plotly)
+
+
+```
+
+
+## Load daily NLDAS indices
+
+```{r}
+
+nldas_daily <- read_rds("C:/Users/slewa/Projects/heat_stress/data/nldas_daily.rds")
+
+nldas_daily 
+
+nldas_daily %>% count(installation) %>% View()
+
+
+```
+
+## Load case-control strata
+
+```{r}
+
+case_control_df <-
+  read_rds("data/case_control_df.rds")
+
+case_control_df %>% count(installation_name) %>% View()
+
+case_control_df <-
+  case_control_df %>% 
+    mutate(installation_name = 
+     recode(installation_name,
+      "CAMP LEJEUNE" = "mcb_camp_lejeune",
+      "CAMP PENDLETON" = "mcb_camp_pendleton",
+      "EGLIN AFB" = "eglin_afb",
+      "FT BENNING" = "fort_benning_ga",
+      "FT BLISS" = "fort_bliss",
+      "FT BRAGG" = "fort_bragg",
+      "FT CAMPBELL" = "fort_campbell",
+      "FT GORDON" = "fort_gordon",
+      "FT HOOD" = "fort_hood",
+      "FT IRWIN" = "ntc_and_fort_irwin",
+      "FT JACKSON" = "fort_jackson",
+      "FT KNOX" = "fort_knox",
+      "FT LEONARD WOOD" = "fort_leonard_wood",
+      "FT POLK" = "fort_polk",
+      "FT RILEY" = "fort_riley",
+      "FT SILL" = "fort_sill",
+      "FT STEWART" = "fort_stewart",
+      "JBSA" = "fort_sam_houston",
+      "PARRIS ISLAND" = "mcrd_beaufort_parris_island",
+      "PENSACOLA" = "pensacola",
+      "PORTSMOUTH" = "portsmouth",
+      "QUANTICO" = "mcb_quantico",
+      "SAN DIEGO" = "mcrd_san_diego",
+      "TWENTYNINE PALMS" = "twentynine_palms_main_base"
+    ))
+```
+
+
+## Join case-crossover and daily exposures
+
+```{r}
+
+cc_exposure_df <-
+  case_control_df %>% 
+    left_join(nldas_daily,  by = c("installation_name" = "installation", "d_event" = "date")) %>% 
+    filter(year %in% 1998:2019)
+
+```
+
+## Conditional Logistic Model (no lag)
+
+Inspect data, compare case days and control days
+```{r}
+
+cc_exposure_df %>% 
+  count(case)
+108248/31647 #3.42 cases per control
+
+
+
+
+# Mean_WBGT
+
+cc_exposure_df %>%
+  group_by(installation_name, case) %>% 
+  summarise(mean_wbgt = mean(wbgt_f_mean))
+
+cc_exposure_df %>%
+  group_by(installation_name, case) %>% 
+  summarise(mean_wbgt = mean(wbgt_f_mean)) %>%
+  filter(case == 1) %>% 
+  drop_na() %>%
+  ungroup() %>% 
+  mutate(installation_name = fct_reorder(installation_name, desc(mean_wbgt))) %>%   ggplot(aes(x = installation_name, y = mean_wbgt)) +
+    geom_col() +
+    theme_bw() +
+      theme(axis.text.x = element_text(angle = 90))
+
+
+
+# boxplots
+cc_exposure_df %>%
+  group_by(installation_name) %>% 
+  filter(case == 1,
+         installation_name %in% c(
+           "fort_benning_ga",
+           "fort_bragg",
+           "mcb_camp_lejeune",
+           "mcrd_beaufort_parris_island",
+           "fort_campbell"
+                    )) %>%
+  mutate(installation_name = recode(installation_name,
+                                    "fort_benning_ga" = "FT BENNING",
+                                    "fort_bragg" = "FT BRAGG",
+                                    "mcb_camp_lejeune" = "CP LEJEUNE",
+                                    "mcrd_beaufort_parris_island" = "PARRIS ISLAND",
+                                    "fort_campbell" = "FT CAMPBELL")) %>% 
+  ggplot(aes(x = installation_name, y = wbgt_f_mean)) +
+    geom_boxplot() +
+    theme_bw() +
+      #theme(axis.text.x = element_text(angle = 90)) +
+      labs(y = "Mean WBGT (°F)",
+           x = "Installation",
+           title = "Mean WBGT on day of HSI cases",
+            subtitle = "1998 - 2019")
+  
+
+
+# Max WBGT
+#
+cc_exposure_df %>%
+  group_by(installation_name) %>% 
+  filter(case == 1,
+         installation_name %in% c(
+           "fort_benning_ga",
+           "fort_bragg",
+           "mcb_camp_lejeune",
+           "mcrd_beaufort_parris_island",
+           "fort_campbell"
+                    )) %>%
+  mutate(installation_name = recode(installation_name,
+                                    "fort_benning_ga" = "FT BENNING",
+                                    "fort_bragg" = "FT BRAGG",
+                                    "mcb_camp_lejeune" = "CP LEJEUNE",
+                                    "mcrd_beaufort_parris_island" = "PARRIS ISLAND",
+                                    "fort_campbell" = "FT CAMPBELL")) %>% 
+  ggplot(aes(x = installation_name, y = wbgt_f_max)) +
+    geom_boxplot() +
+    theme_bw() +
+      #theme(axis.text.x = element_text(angle = 90)) +
+      labs(y = "Max WBGT (°F)",
+           x = "Installation",
+           title = "Maximum WBGT on day of HSI cases",
+            subtitle = "1998 - 2019")
+
+
+
+```
+
+
+
+# CLM
+
+- CLM all data
+- CLM restrict winter months (DEC, JAN, FEB)
+- CLM mean WBGT > 50
+```{r}
+
+
+clm_basic <- 
+   survival::clogit(case ~ ns(wbgt_f_mean, df = 2) +  
+                   strata(date), 
+                   method = "efron", 
+                   cc_exposure_df) 
+
+# summary(clm_basic)
+
+
+# broom::tidy(clm_basic)
+# broom::glance(clm_basic)
+
+clm_augment <-
+  broom::augment(clm_basic, cc_exposure_df)
+
+
+
+clm_augment %>% 
+  ggplot(aes(x = wbgt_f_mean, y = .fitted)) + 
+  geom_smooth(size = 1.5) + # method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+  geom_point(alpha = 0.05, size = 0.5) +
+  theme_bw() +
+    ylab("Odds of HSI")
+  
+
+
+###############################################################################################
+
+# Remove winter months (Dec, Jan, Feb)
+
+cc_exposure_mar_nov <-
+  cc_exposure_df %>% 
+    filter(!lubridate::month(d_event) %in% c(12, 01, 02))
+
+
+
+clm_basic_mar_nov <- 
+   survival::clogit(case ~ ns(wbgt_f_mean, df = 2) +  
+                   strata(date), 
+                   method = "efron", 
+                   cc_exposure_mar_nov) 
+
+
+
+clm_augment_mar_nov <-
+  broom::augment(clm_basic_mar_nov, cc_exposure_mar_nov)
+
+
+
+clm_augment_mar_nov %>% 
+  ggplot(aes(x = wbgt_f_mean, y = .fitted)) + 
+  geom_smooth(size = 1.5) + # method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+  geom_point(alpha = 0.05, size = 0.5) +
+  theme_bw() +
+    ylab("Odds of HSI") +
+    ggtitle("CLM, ns 2df, MAR - NOV")
+  
+
+#########################################
+
+# Filter WBGT mean less than 50 deg F
+
+
+cc_exposure_gt50 <-
+  cc_exposure_df %>% 
+     group_by(studyid, d_event, installation_name) %>%  
+        filter(any(wbgt_f_mean > 50)) %>% 
+        ungroup()
+
+
+
+clm_basic_gt50 <- 
+   survival::clogit(case ~ ns(wbgt_f_mean, df = 2) +  
+                   strata(date), 
+                   method = "efron", 
+                   cc_exposure_gt50) 
+
+
+
+clm_basic_augment_gt50 <-
+  broom::augment(clm_basic_gt50, cc_exposure_gt50)
+
+
+
+clm_basic_augment_gt50 %>% 
+  ggplot(aes(x = wbgt_f_mean, y = .fitted)) + 
+  geom_smooth(size = 1.5) + # method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+  geom_point(alpha = 0.05, size = 0.5) +
+  theme_bw() +
+    ylab("Odds of HSI") +
+    ggtitle("CLM, ns 2df, WBGT mean > 50")
+
+```
+
+
+# Examine linear fit
+
+- mean WBGT gt 50 deg F
+```{r}
+
+
+cc_exposure_gt50 
+
+
+
+clm_basic_gt50_lin <- 
+   survival::clogit(case ~ wbgt_f_mean +  
+                   strata(date), 
+                   method = "efron", 
+                   cc_exposure_gt50) 
+
+
+
+clm_basic_augment_gt50_lin <-
+  broom::augment(clm_basic_gt50_lin, cc_exposure_gt50)
+
+
+
+clm_basic_augment_gt50_lin %>% 
+  ggplot(aes(x = wbgt_f_mean, y = .fitted)) + 
+  geom_smooth(method = "lm", size = 1.5) +
+  geom_point(alpha = 0.05, size = 0.5) +
+  theme_bw() +
+    ylab("Odds of HSI") +
+    ggtitle("CLM, linear, WBGT mean > 50")
+
+```
+
+
+# DLNM
+
+## Lags function
+
+
+
+```{r}
+
+lags <- seq(7) # Number of lags
+
+lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"), 
+  sep = "_")
+
+lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
+
+#  d %>% mutate_at(vars(x), funs_(lag_fun))
+
+```
+
+
+```{r}
+
+
+# for nested df by installation, with date in 1st column and index in 2nd 
+
+create_lags_fun = function(df) {
+  
+  df %>% 
+    mutate(lag_1 = dplyr::lag(dplyr::select(2), n = 1),
+           lag_2 = dplyr::lag(dplyr::select(2), n = 2),
+           lag_3 = dplyr::lag(dplyr::select(2), n = 3),
+           lag_4 = dplyr::lag(dplyr::select(2), n = 4),
+           lag_5 = dplyr::lag(dplyr::select(2), n = 5),
+           lag_6 = dplyr::lag(dplyr::select(2), n = 6),
+           lag_7 = dplyr::lag(dplyr::select(2), n = 7))
+  
+}
+
+```
+
+## Cross-basis
+
+
+```{r}
+
+selected_index <- "wbgt_f_mean"
+
+
+# create lag matrix
+
+lag_matrix_all <-
+   nldas_daily %>% 
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+      dplyr::select(installation, date, selected_index) %>% 
+   group_by(installation) %>% 
+   mutate_at(vars(selected_index), funs_(lag_fun)
+  )
+
+
+
+
+
+# join lag matrix to case-crossover dataframe
+
+cc_lag_matrix <-
+  cc_exposure_df %>% 
+    filter(year %in% 1998:2019) %>% 
+    dplyr::select(!selected_index) %>%    # remove to avoid double listeing after join
+    left_join(lag_matrix_all,  by = c("installation_name" = "installation", "date" = "date")) 
+
+
+cc_lag_only <- 
+  cc_lag_matrix %>% 
+  dplyr::select(selected_index, lag_1:lag_7)
+
+
+
+# create dlnm cross-basis
+
+wbgt_mean_cb <-
+    crossbasis(
+      cc_lag_only,    
+      lag = 7,    # of lags
+      argvar = list(fun = "ns", df = 3),    #  functional form of the dose-response curve
+      arglag = list(fun = "ns", df = 3))    #  functional form of the lags
+
+summary(wbgt_mean_cb)
+
+
+
+```
+
+```{r}
+# run model and get prediction for wbgt_mean
+
+
+cc_exposure_df <-   cc_exposure_df %>% 
+  mutate(stratum = paste(studyid, d_event, sep = " "))
+
+
+wbgt_mean_dlnm <- survival::clogit(case ~ 
+                  wbgt_mean_cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "efron", 
+                  data =  cc_exposure_df) 
+
+
+pred_wbgt_mean <- crosspred(wbgt_mean_cb, wbgt_mean_dlnm, cumul = TRUE)
+
+
+
+```
+
+Plot cross-predictions
+```{r}
+
+# 3d Plot 
+
+plot(pred_wbgt_mean, 
+     xlab = "\nmean WBGT", zlab = "\nRR", ylab = "\nLag", 
+     theta = 40, phi = 30, lphi = 30,
+     main = "Mean daily WBGT \n1998-2019")
+
+crosspred_plot <-  
+  plot(pred_wbgt_mean, 
+       xlab = "\nmean WBGT", zlab = "\nRR", ylab = "\nLag", 
+       theta = 40, phi = 30, lphi = 30,
+       main = "Mean daily WBGT \n1998-2019")
+
+
+
+# Slice Plot
+# visualize association at specific lags 
+
+
+# Plot dose-response curve at Lag 0
+
+par(mar = c(5.1, 4.1, 4.1, 2.1))
+
+
+```
+
+
+```{r}
+
+plot(pred_wbgt_mean, "slices",
+     lag = 0,
+     ylim = c(0.95, 1.6),
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 0 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+
+plot(pred_wbgt_mean, "slices",
+     lag = 1,
+     ylim = c(0.95, 1.6),
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 1 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     lag = 2,
+     ylim = c(0.95, 1.6),
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 2 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     lag = 3,
+     ci = "n", 
+     ylim = c(0.95, 1.6),
+     lwd = 2,
+     main = "Exposure-Response at Lag 3 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+```
+
+```{r}
+plot(pred_wbgt_mean, "slices",
+     var = 60,
+     ylim = c(0.95, 1.4),
+     lwd = 4,
+     col = "darkred",
+     main = "Lag-Response at 60°F mean WBGT \n  1998-2019", 
+     xlab = "Days Lag", 
+     ylab = "HSI Rate Ratio")
+
+
+
+```
+
+
+
+
+
+
+
+
+# join lag matrix to case-crossover dataframe
+
+
+cc_selected_index <-
+  case_control_df %>% 
+      filter(year %in% 1998:2019) %>% 
+      mutate(installation_name = 
+         recode(installation_name,
+          "CAMP LEJEUNE" = "mcb_camp_lejeune",
+          "CAMP PENDLETON" = "mcb_camp_pendleton",
+          "EGLIN AFB" = "eglin_afb",
+          "FT BENNING" = "fort_benning_ga",
+          "FT BLISS" = "fort_bliss",
+          "FT BRAGG" = "fort_bragg",
+          "FT CAMPBELL" = "fort_campbell",
+          "FT GORDON" = "fort_gordon",
+          "FT HOOD" = "fort_hood",
+          "FT IRWIN" = "ntc_and_fort_irwin",
+          "FT JACKSON" = "fort_jackson",
+          "FT KNOX" = "fort_knox",
+          "FT LEONARD WOOD" = "fort_leonard_wood",
+          "FT POLK" = "fort_polk",
+          "FT RILEY" = "fort_riley",
+          "FT SILL" = "fort_sill",
+          "FT STEWART" = "fort_stewart",
+          "JBSA" = "fort_sam_houston",
+          "PARRIS ISLAND" = "mcrd_beaufort_parris_island",
+          "PENSACOLA" = "pensacola",
+          "PORTSMOUTH" = "portsmouth",
+          "QUANTICO" = "mcb_quantico",
+          "SAN DIEGO" = "mcrd_san_diego",
+          "TWENTYNINE PALMS" = "twentynine_palms_main_base"
+        )) %>% 
+      left_join(lag_matrix, by = c("installation_name" = "installation", "d_event" = "date")) 
+
+

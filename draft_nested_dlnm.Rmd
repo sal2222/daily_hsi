@@ -1,0 +1,442 @@
+---
+title: "draft_nested_dlnm"
+author: "SL"
+date: "10/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(survival)
+library(splines)
+library(broom)
+library(dlnm)
+library(plotly)
+
+
+```
+
+
+## Load daily NLDAS indices
+
+```{r}
+
+nldas_daily <- read_rds("C:/Users/slewa/Projects/heat_stress/data/nldas_daily.rds")
+
+nldas_daily 
+
+nldas_daily %>% count(installation) %>% View()
+
+
+```
+
+## Load case-control strata
+
+```{r}
+
+case_control_df <-
+  read_rds("data/case_control_df.rds")
+
+case_control_df %>% count(installation_name) %>% View()
+
+case_control_df <-
+  case_control_df %>% 
+    mutate(installation_name = 
+     recode(installation_name,
+      "CAMP LEJEUNE" = "mcb_camp_lejeune",
+      "CAMP PENDLETON" = "mcb_camp_pendleton",
+      "EGLIN AFB" = "eglin_afb",
+      "FT BENNING" = "fort_benning_ga",
+      "FT BLISS" = "fort_bliss",
+      "FT BRAGG" = "fort_bragg",
+      "FT CAMPBELL" = "fort_campbell",
+      "FT GORDON" = "fort_gordon",
+      "FT HOOD" = "fort_hood",
+      "FT IRWIN" = "ntc_and_fort_irwin",
+      "FT JACKSON" = "fort_jackson",
+      "FT KNOX" = "fort_knox",
+      "FT LEONARD WOOD" = "fort_leonard_wood",
+      "FT POLK" = "fort_polk",
+      "FT RILEY" = "fort_riley",
+      "FT SILL" = "fort_sill",
+      "FT STEWART" = "fort_stewart",
+      "JBSA" = "fort_sam_houston",
+      "PARRIS ISLAND" = "mcrd_beaufort_parris_island",
+      "PENSACOLA" = "pensacola",
+      "PORTSMOUTH" = "portsmouth",
+      "QUANTICO" = "mcb_quantico",
+      "SAN DIEGO" = "mcrd_san_diego",
+      "TWENTYNINE PALMS" = "twentynine_palms_main_base"
+    ))
+```
+
+
+## Join case-crossover and daily exposures
+
+```{r}
+
+cc_exposure_df <-
+  case_control_df %>% 
+    left_join(nldas_daily,  by = c("installation_name" = "installation", "d_event" = "date")) %>% 
+    filter(year %in% 1998:2019)
+
+```
+
+## Conditional Logistic Model (no lag)
+
+Inspect data, compare case days and control days
+```{r}
+
+cc_exposure_df %>% 
+  count(case)
+108248/31647 #3.42 cases per control
+
+
+
+
+# Mean_WBGT
+
+cc_exposure_df %>%
+  group_by(installation_name, case) %>% 
+  summarise(mean_wbgt = mean(wbgt_f_mean))
+
+cc_exposure_df %>%
+  group_by(installation_name, case) %>% 
+  summarise(mean_wbgt = mean(wbgt_f_mean)) %>%
+  filter(case == 1) %>% 
+  drop_na() %>%
+  ungroup() %>% 
+  mutate(installation_name = fct_reorder(installation_name, desc(mean_wbgt))) %>%   ggplot(aes(x = installation_name, y = mean_wbgt)) +
+    geom_col() +
+    theme_bw() +
+      theme(axis.text.x = element_text(angle = 90))
+
+
+
+# boxplots
+cc_exposure_df %>%
+  group_by(installation_name) %>% 
+  filter(case == 1,
+         installation_name %in% c(
+           "fort_benning_ga",
+           "fort_bragg",
+           "mcb_camp_lejeune",
+           "mcrd_beaufort_parris_island",
+           "fort_campbell"
+                    )) %>%
+  mutate(installation_name = recode(installation_name,
+                                    "fort_benning_ga" = "FT BENNING",
+                                    "fort_bragg" = "FT BRAGG",
+                                    "mcb_camp_lejeune" = "CP LEJEUNE",
+                                    "mcrd_beaufort_parris_island" = "PARRIS ISLAND",
+                                    "fort_campbell" = "FT CAMPBELL")) %>% 
+  ggplot(aes(x = installation_name, y = wbgt_f_mean)) +
+    geom_boxplot() +
+    theme_bw() +
+      #theme(axis.text.x = element_text(angle = 90)) +
+      labs(y = "Mean WBGT (°F)",
+           x = "Installation",
+           title = "Mean WBGT on day of HSI cases",
+            subtitle = "1998 - 2019")
+  
+
+
+# Max WBGT
+#
+cc_exposure_df %>%
+  group_by(installation_name) %>% 
+  filter(case == 1,
+         installation_name %in% c(
+           "fort_benning_ga",
+           "fort_bragg",
+           "mcb_camp_lejeune",
+           "mcrd_beaufort_parris_island",
+           "fort_campbell"
+                    )) %>%
+  mutate(installation_name = recode(installation_name,
+                                    "fort_benning_ga" = "FT BENNING",
+                                    "fort_bragg" = "FT BRAGG",
+                                    "mcb_camp_lejeune" = "CP LEJEUNE",
+                                    "mcrd_beaufort_parris_island" = "PARRIS ISLAND",
+                                    "fort_campbell" = "FT CAMPBELL")) %>% 
+  ggplot(aes(x = installation_name, y = wbgt_f_max)) +
+    geom_boxplot() +
+    theme_bw() +
+      #theme(axis.text.x = element_text(angle = 90)) +
+      labs(y = "Max WBGT (°F)",
+           x = "Installation",
+           title = "Maximum WBGT on day of HSI cases",
+            subtitle = "1998 - 2019")
+
+
+
+```
+
+
+## Nested CLM models
+```{r}
+# Model (without lag)
+
+# nest by installation
+
+clm_nest <- 
+  nest(cc_exposure_df, data = studyid:wbgt_f_sd)
+
+
+#  Model function
+
+clm_fun <- function(df) {
+  survival::clogit(case ~ ns(wbgt_f_mean, df = 3) +  
+                 strata(c(studyid, lubridate::year(date))), 
+                 method = "efron",
+                 data = df) 
+}
+
+
+clm_nest %>% 
+  filter(!installation_name %in% c("pensacola", "portsmouth")) %>% 
+    map(.$data, clm_fun)
+  
+  
+
+```
+
+
+
+Lags function
+Example: https://gist.github.com/drsimonj/2038ff9f9c67063f384f10fac95de566
+```{r}
+
+lags <- seq(7) # Number of lags
+
+lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"), 
+  sep = "_")
+
+lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
+
+#  d %>% mutate_at(vars(x), funs_(lag_fun))
+
+
+```
+
+
+Nested cross-basis
+```{r}
+
+
+selected_index <- "wbgt_f_mean"
+
+
+nested_index_df_fun <-
+  function(selected_index) { 
+    nldas_daily %>% 
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+    dplyr::select(installation, date, selected_index) %>% 
+    nest(date:selected_index)
+}
+
+nested_index_df <-
+  nested_index_df_fun(selected_index)
+
+
+
+# create lag matrix
+
+lag_matrix_fun <-
+  function(selected_index) {
+    nested_index_df %>% 
+      unnest(data) %>% 
+      mutate_at(vars(selected_index), funs_(lag_fun))
+  }
+
+
+lag_matrix <-
+  lag_matrix_fun(selected_index) 
+
+
+
+
+# join lag matrix to case-crossover dataframe
+
+cc_selected_index <-
+  case_control_df %>% 
+      filter(year %in% 1998:2019) %>% 
+      mutate(installation_name = 
+         recode(installation_name,
+          "CAMP LEJEUNE" = "mcb_camp_lejeune",
+          "CAMP PENDLETON" = "mcb_camp_pendleton",
+          "EGLIN AFB" = "eglin_afb",
+          "FT BENNING" = "fort_benning_ga",
+          "FT BLISS" = "fort_bliss",
+          "FT BRAGG" = "fort_bragg",
+          "FT CAMPBELL" = "fort_campbell",
+          "FT GORDON" = "fort_gordon",
+          "FT HOOD" = "fort_hood",
+          "FT IRWIN" = "ntc_and_fort_irwin",
+          "FT JACKSON" = "fort_jackson",
+          "FT KNOX" = "fort_knox",
+          "FT LEONARD WOOD" = "fort_leonard_wood",
+          "FT POLK" = "fort_polk",
+          "FT RILEY" = "fort_riley",
+          "FT SILL" = "fort_sill",
+          "FT STEWART" = "fort_stewart",
+          "JBSA" = "fort_sam_houston",
+          "PARRIS ISLAND" = "mcrd_beaufort_parris_island",
+          "PENSACOLA" = "pensacola",
+          "PORTSMOUTH" = "portsmouth",
+          "QUANTICO" = "mcb_quantico",
+          "SAN DIEGO" = "mcrd_san_diego",
+          "TWENTYNINE PALMS" = "twentynine_palms_main_base"
+        )) %>% 
+      left_join(lag_matrix, by = c("installation_name" = "installation", "d_event" = "date")) 
+
+
+
+
+# Select only lag matrix
+
+lag_matrix_only_fun <-
+  function(selected_index) {
+    cc_selected_index %>% 
+      dplyr::select(installation_name, selected_index:lag_7)
+  }
+    
+  
+lag_matrix_only <-
+  lag_matrix_only_fun(selected_index) %>% 
+  nest(lag_matrix = -installation_name)
+
+
+
+
+
+# create dlnm cross-basis
+
+cb_fun <-
+  function(df) {
+    crossbasis(
+      df,    
+      lag = 7,    # of lags
+      argvar = list(fun = "ns", df = 3),    #  functional form of the dose-response curve
+      arglag = list(fun = "ns", df = 4))    #  functional form of the lags
+}
+
+
+
+
+cb_nest <-
+  lag_matrix_only %>% 
+    filter(!installation_name %in% c("pensacola", "portsmouth", "fort_knox")) %>% 
+    mutate(cb = map(lag_matrix, cb_fun))
+
+
+cb_nest
+
+
+
+
+
+
+
+# Inspect missing values
+lag_matrix_only %>% 
+  unnest(data) %>% 
+  naniar::vis_miss(warn_large_data = FALSE)
+
+
+lag_matrix_only %>% 
+  unnest(data) %>% 
+  naniar::gg_miss_var(., facet = installation_name)
+
+```
+
+
+
+
+```{r}
+
+
+# Prepare nested df with data and cross basis for selected index
+
+dlnm_df <-
+  cc_selected_index %>%
+    mutate(stratum = paste(studyid, d_event, sep = " ")) %>%   # identify stratum by studyid and date of event 
+    nest(data = -installation_name) %>% 
+    left_join(cb_nest, by = "installation_name")
+    
+
+
+
+
+# run model and get prediction for wbgt_mean
+
+dlnm_fun <-
+  function(data, cb) {
+    survival::clogit(case ~ 
+                  cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "efron", 
+                  data = data) 
+}
+    
+    
+dlnm_df %>% 
+  mutate(dlnm_mod = 
+          map(.x = ., 
+              .f = ~ survival::clogit(data$case ~ 
+                  cb +  # lagged, nonlinear term for exposure
+                  strata(data$stratum), 
+                  method = "efron", 
+                  data = .)))
+
+
+  map(.x = dlnm_df, 
+      .f = ~ survival::clogit(data$case ~ 
+          cb +  # lagged, nonlinear term for exposure
+          strata(data$stratum), 
+          method = "efron", 
+          data = .x))
+
+  
+ for (i in seq_len(nrow(dlnm_df))) {
+    survival::clogit(data$case ~ 
+          cb +  # lagged, nonlinear term for exposure
+          strata(data$stratum), 
+          method = "efron", 
+          data = dlnm_df)
+}
+
+  
+
+
+
+pred_wbgt_mean <- crosspred(cb_benning_wbgt_mean, benning_dlnm, cumul = TRUE)
+
+
+cb_nest %>% 
+  unnest(data)
+
+
+
+benning_dlnm <- survival::clogit(case ~ 
+                  cb_benning_wbgt_mean +  # lagged, nonlinear term for exposure
+                  strata(date), 
+                  method = "efron", 
+                  data = benning_cc) 
+
+
+
+```
+
+Plot cross-predictions
+```{r}
+
+# 3d Plot 
+
+plot(pred_wbgt_mean, 
+     xlab = "\nmean WBGT", zlab = "\nRR", ylab = "\nLag", 
+     theta = 40, phi = 30, lphi = 30,
+     main = "Fort Benning mean daily WBGT \n1998-2019")
+```

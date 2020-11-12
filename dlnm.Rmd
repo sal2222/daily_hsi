@@ -461,7 +461,7 @@ par(mar = c(5.1, 4.1, 4.1, 2.1))
 
 plot(pred_wbgt_mean, "slices",
      lag = 0,
-     ylim = c(0.95, 1.6),
+     #ylim = c(0, 10),
      lwd = 4,
      col = "darkred",
      main = "Exposure-Response at Lag 0 \n  1998-2019", 
@@ -471,7 +471,6 @@ plot(pred_wbgt_mean, "slices",
 
 plot(pred_wbgt_mean, "slices",
      lag = 1,
-     ylim = c(0.95, 1.6),
      lwd = 4,
      col = "darkred",
      main = "Exposure-Response at Lag 1 \n  1998-2019", 
@@ -480,7 +479,6 @@ plot(pred_wbgt_mean, "slices",
 
 plot(pred_wbgt_mean, "slices",
      lag = 2,
-     ylim = c(0.95, 1.6),
      lwd = 4,
      col = "darkred",
      main = "Exposure-Response at Lag 2 \n  1998-2019", 
@@ -489,25 +487,48 @@ plot(pred_wbgt_mean, "slices",
 
 plot(pred_wbgt_mean, "slices",
      lag = 3,
-     ci = "n", 
-     ylim = c(0.95, 1.6),
-     lwd = 2,
+     lwd = 4,
+     col = "darkred",
      main = "Exposure-Response at Lag 3 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     lag = 4,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 4 \n  1998-2019", 
      xlab = "Mean WBGT", 
      ylab = "HSI Rate Ratio")
 ```
 
+
+
 ```{r}
 plot(pred_wbgt_mean, "slices",
      var = 60,
-     ylim = c(0.95, 1.4),
      lwd = 4,
      col = "darkred",
      main = "Lag-Response at 60°F mean WBGT \n  1998-2019", 
      xlab = "Days Lag", 
      ylab = "HSI Rate Ratio")
 
+plot(pred_wbgt_mean, "slices",
+     var = 70,
+     lwd = 4,
+     col = "darkred",
+     main = "Lag-Response at 70°F mean WBGT \n  1998-2019", 
+     xlab = "Days Lag", 
+     ylab = "HSI Rate Ratio")
 
+
+plot(pred_wbgt_mean, "slices",
+     var = 80,
+     lwd = 4,
+     col = "darkred",
+     main = "Lag-Response at 80°F mean WBGT \n  1998-2019", 
+     xlab = "Days Lag", 
+     ylab = "HSI Rate Ratio")
 
 ```
 
@@ -515,42 +536,182 @@ plot(pred_wbgt_mean, "slices",
 
 
 
+## Model out to 4 days Lag; Restrict to strata mean WBGT > 50 deg F
+
+
+
+
+```{r}
+
+
+# for nested df by installation, with date in 1st column and index in 2nd 
+
+create_lags_fun = function(df) {
+  
+  df %>% 
+    mutate(lag_1 = dplyr::lag(dplyr::select(2), n = 1),
+           lag_2 = dplyr::lag(dplyr::select(2), n = 2),
+           lag_3 = dplyr::lag(dplyr::select(2), n = 3),
+           lag_4 = dplyr::lag(dplyr::select(2), n = 4))
+  
+}
+
+
+selected_index <- "wbgt_f_mean"
+
+
+# create lag matrix
+
+lag_matrix_all <-
+   nldas_daily %>% 
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+      dplyr::select(installation, date, selected_index) %>% 
+   group_by(installation) %>% 
+   mutate_at(vars(selected_index), funs_(lag_fun)
+  )
 
 
 
 # join lag matrix to case-crossover dataframe
 
+cc_lag_matrix <-
+  cc_exposure_df %>% 
+    filter(year %in% 1998:2019) %>% 
+    group_by(studyid, d_event) %>%  
+    filter(any(selected_index > 50)) %>% 
+    ungroup() %>% 
+    dplyr::select(!selected_index) %>%    # remove to avoid double listeing after join
+    left_join(lag_matrix_all,  by = c("installation_name" = "installation", "date" = "date")) 
 
-cc_selected_index <-
-  case_control_df %>% 
-      filter(year %in% 1998:2019) %>% 
-      mutate(installation_name = 
-         recode(installation_name,
-          "CAMP LEJEUNE" = "mcb_camp_lejeune",
-          "CAMP PENDLETON" = "mcb_camp_pendleton",
-          "EGLIN AFB" = "eglin_afb",
-          "FT BENNING" = "fort_benning_ga",
-          "FT BLISS" = "fort_bliss",
-          "FT BRAGG" = "fort_bragg",
-          "FT CAMPBELL" = "fort_campbell",
-          "FT GORDON" = "fort_gordon",
-          "FT HOOD" = "fort_hood",
-          "FT IRWIN" = "ntc_and_fort_irwin",
-          "FT JACKSON" = "fort_jackson",
-          "FT KNOX" = "fort_knox",
-          "FT LEONARD WOOD" = "fort_leonard_wood",
-          "FT POLK" = "fort_polk",
-          "FT RILEY" = "fort_riley",
-          "FT SILL" = "fort_sill",
-          "FT STEWART" = "fort_stewart",
-          "JBSA" = "fort_sam_houston",
-          "PARRIS ISLAND" = "mcrd_beaufort_parris_island",
-          "PENSACOLA" = "pensacola",
-          "PORTSMOUTH" = "portsmouth",
-          "QUANTICO" = "mcb_quantico",
-          "SAN DIEGO" = "mcrd_san_diego",
-          "TWENTYNINE PALMS" = "twentynine_palms_main_base"
-        )) %>% 
-      left_join(lag_matrix, by = c("installation_name" = "installation", "d_event" = "date")) 
+
+cc_lag_only <- 
+  cc_lag_matrix %>% 
+  dplyr::select(selected_index, lag_1:lag_4)
+
+
+
+# create dlnm cross-basis
+
+wbgt_mean_cb <-
+    crossbasis(
+      cc_lag_only,    
+      lag = 4,    # of lags
+      argvar = list(fun = "ns", df = 3),    #  functional form of the dose-response curve
+      arglag = list(fun = "ns", df = 3))    #  functional form of the lags
+
+summary(wbgt_mean_cb)
+
+
+# run model and get prediction for wbgt_mean
+
+
+cc_exposure_df <-   cc_exposure_df %>% 
+  mutate(stratum = paste(studyid, d_event, sep = " "))
+
+
+wbgt_mean_dlnm <- survival::clogit(case ~ 
+                  wbgt_mean_cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "efron", 
+                  data =  cc_exposure_df) 
+
+
+pred_wbgt_mean <- crosspred(wbgt_mean_cb, wbgt_mean_dlnm, cumul = TRUE)
+
+
+
+# Plot cross-predictions
+
+
+# 3d Plot 
+
+plot(pred_wbgt_mean, 
+     xlab = "\nmean WBGT", zlab = "\nRR", ylab = "\nLag", 
+     theta = 40, phi = 30, lphi = 30,
+     main = "Mean daily WBGT \n1998-2019")
+
+crosspred_plot <-  
+  plot(pred_wbgt_mean, 
+       xlab = "\nmean WBGT", zlab = "\nRR", ylab = "\nLag", 
+       theta = 40, phi = 30, lphi = 30,
+       main = "Mean daily WBGT \n1998-2019")
+
+
+
+# Slice Plot
+# visualize association at specific lags 
+
+
+# Plot dose-response curve at Lag 0
+
+
+plot(pred_wbgt_mean, "slices",
+     lag = 0,
+     #ylim = c(0, 10),
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 0 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+
+plot(pred_wbgt_mean, "slices",
+     lag = 1,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 1 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     lag = 2,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 2 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     lag = 3,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 3 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     lag = 4,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 4 \n  1998-2019", 
+     xlab = "Mean WBGT", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     var = 60,
+     lwd = 4,
+     col = "darkred",
+     main = "Lag-Response at 60°F mean WBGT \n  1998-2019", 
+     xlab = "Days Lag", 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_wbgt_mean, "slices",
+     var = 70,
+     lwd = 4,
+     col = "darkred",
+     main = "Lag-Response at 70°F mean WBGT \n  1998-2019", 
+     xlab = "Days Lag", 
+     ylab = "HSI Rate Ratio")
+
+
+plot(pred_wbgt_mean, "slices",
+     var = 80,
+     lwd = 4,
+     col = "darkred",
+     main = "Lag-Response at 80°F mean WBGT \n  1998-2019", 
+     xlab = "Days Lag", 
+     ylab = "HSI Rate Ratio")
+
+```
 
 

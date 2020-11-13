@@ -258,9 +258,6 @@ write_rds(., path = paste0(output_path,
 ncdump::NetCDF("D:/nldas/NLDAS_FORA0125_H.A20090510.2000.002.grb.SUB.nc4")
 ```
 
-corrupt files: 20090509_0500 to 20090510_2000 (41 files)
-
-
 
 ## .rds objects to List
 
@@ -339,6 +336,9 @@ read_rds("D:/output/portsmouth_nmc.rds") %>% tail()
 
 
 
+```{r}
+
+```
 
 
 

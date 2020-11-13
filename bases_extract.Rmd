@@ -1,0 +1,394 @@
+---
+title: "bases_extract"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(sf) 
+library(tidyverse)
+library(viridis)
+library(rvest)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(rgeos)
+library(lwgeom)
+library(cowplot)
+library(purrr)
+library(purrrlyr)
+library(tmap)
+library(raster)
+library(ncdf4)
+library(ncdump)
+library(lubridate)
+library(flipTime) # devtools::install_github("Displayr/flipTime")
+library(fuzzyjoin)
+library(RNetCDF)
+library(tidync)
+library(furrr)
+library(humidity)
+library(HeatStress) #devtools::install_github("anacv/HeatStress")
+library(weathermetrics)
+library(wbgt)  #devtools::install_github("mdljts/wbgt")
+library(easyNCDF)
+library(devtools)
+library(tabularaster) #devtools::install_github("hypertidy/tabularaster")
+
+# devtools::install_github("hypertidy/silicate")
+#.libPaths()
+```
+
+
+Compile hourly dataframes for all installations except Portsmouth and Pensacola.
+
+Process through 3 sets of extracted NLDAS folders of .rds objects:
+1. nldas_raster
+2. nldas_raster_joint
+3. nldas_raster_end 2019
+ 
+
+
+
+## Load Military Installations, Ranges, and Training Areas (MIRTA) Dataset
+Accessed from: https://catalog.data.gov/dataset/military-installations-ranges-and-training-areas
+Metadata updated date: January 18, 2017
+```{r load_shapefile}
+#Ref: http://strimas.com/r/tidy-sf/
+bases <- st_read("D:/heat/installations_ranges/MIRTA_Boundaries.shp") %>% 
+  janitor::clean_names()
+
+
+
+# create table of centroids
+
+centroid_coords <-
+  bases %>% 
+    dplyr::filter(
+      .$site_name %in% c(
+      "Fort Benning GA", "Fort Bragg","Fort Campbell",
+      "Fort Jackson", "Fort Polk", "Fort Hood",
+      "Fort Stewart", "Fort Leonard Wood", "Fort Riley",
+      "NTC and Fort Irwin", "Fort Bliss", "Fort Lewis",
+      "Fort Sill", "Fort Huachuca", "Fort Carson", "Fort Gordon",
+      "West Point Mil Reservation", "Fort Drum",
+      "MCB Quantico", "MCRD San Diego", "Twentynine Palms Main Base",
+      "MCB Camp Lejeune", "MCRD Beaufort Parris Island", "MCB Camp Pendleton",
+      "Eglin AFB", "Lackland AFB", "Fort Sam Houston", "NAS Pensacola", "Naval Medical Center Portsmouth")
+      )%>% 
+    mutate(centroid = st_centroid(geometry)) %>% 
+    dplyr::select(-c("component", "joint_base", "country", "oper_stat")) %>% 
+  as_tibble()
+
+
+centroid_coords
+
+# write_rds(centroid_coords, path = ("D:/output/centroid_coords.rds"))
+
+
+
+# centroid lat/lon warning messages remain even after transformation:
+#  sf::st_transform(4326)  -- same results
+
+```
+
+# 1. nldas_raster "1st set"
+
+ .rds object list
+
+```{r extract_variable_names}
+
+
+file_list1 <- list.files(path = "D:/nldas_raster", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>% 
+  as_tibble()
+
+
+nldas_list1 <- list.files(path = "D:/nldas_raster", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>%  
+  lapply(., read_rds)
+
+
+
+
+# Set date/time as list element name
+
+date_time_names <- 
+  paste0(
+      file_list1$value %>%  stringr::str_sub(start = -17)
+  ) %>% 
+  str_sub(end = -5)
+        
+        
+        
+#date_time_names %>% as_tibble() %>% n_distinct()
+#date_time_names %>% as_tibble() %>% janitor::get_dupes(value)
+
+
+names(nldas_list1) <- date_time_names
+
+# write_rds(nldas_list1, path = "D:/output/nldas_list1.rds")
+
+
+## Extract NLDAS from list for each location
+
+#nldas_list1 <-
+ # read_rds("D:/output/nldas_list1.rds")
+
+first_set_bases <- c(
+      "Fort Benning GA", "Fort Bragg","Fort Campbell",
+      "Fort Jackson", "Fort Polk", "Fort Hood",
+      "Fort Stewart", "Fort Leonard Wood", "Fort Riley",
+      "NTC and Fort Irwin", "Fort Bliss", "Fort Lewis",
+      "Fort Sill", "Fort Huachuca", "Fort Carson", "Fort Gordon",
+      "West Point Mil Reservation", "Fort Drum") %>% 
+  stringr::str_replace_all(., " ", "_") %>%
+  stringr::str_to_lower()
+
+# Extract by location from list and create an NLDAS object for each.
+
+for (i in seq_along(first_set_bases)) {
+
+nldas_list1 %>% 
+    lapply(function(x) x[i,]) %>% 
+    bind_rows(., .id = "date_time") %>% 
+  write_rds(., path = paste0("D:/output/",  first_set_bases[i], ".rds" ))
+}  
+
+
+# read_rds("D:/output/fort_bragg.rds")
+
+
+```
+
+
+
+
+# 2nd set ("joint")
+
+
+
+```{r}
+
+file_list2 <- list.files(path = "D:/nldas_raster_joint", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>% 
+  as_tibble()
+
+
+nldas_list2 <- list.files(path = "D:/nldas_raster_joint", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>%  
+  lapply(., read_rds)
+
+
+
+
+# Set date/time as list element name
+
+date_time_names <- 
+  paste0(
+      file_list2$value %>%  stringr::str_sub(start = -17)
+  ) %>% 
+  str_sub(end = -5)
+        
+        
+        
+#date_time_names %>% as_tibble() %>% n_distinct()
+#date_time_names %>% as_tibble() %>% janitor::get_dupes(value)
+
+
+names(nldas_list2) <- date_time_names
+
+# write_rds(nldas_list2, path = "D:/output2/nldas_list2.rds")
+
+
+## Extract NLDAS from list for each location
+
+#nldas_list1 <-
+ # read_rds("D:/output/nldas_list1.rds")
+
+second_set_bases <- c(
+           "MCB Quantico", "MCRD San Diego", "Twentynine Palms Main Base",
+           "MCB Camp Lejeune", "MCRD Beaufort Parris Island", "MCB Camp Pendleton",
+           "Eglin AFB", "Lackland AFB", "Fort Sam Houston") %>% 
+  stringr::str_replace_all(., " ", "_") %>%
+  stringr::str_to_lower()
+  
+
+second_set_bases 
+
+
+# Extract by location from list and create an NLDAS object for each.
+
+for (i in seq_along(second_set_bases)) {
+
+nldas_list2 %>% 
+    lapply(function(x) x[i,]) %>% 
+    bind_rows(., .id = "date_time") %>% 
+  write_rds(., path = paste0("D:/output/",  second_set_bases[i], ".rds" ))
+}  
+
+```
+
+
+
+
+# Set 3 (end 2019)
+
+
+
+
+```{r}
+
+file_list3 <- list.files(path = "D:/nldas_raster_end2019", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>% 
+  as_tibble()
+
+
+nldas_list3 <- list.files(path = "D:/nldas_raster_end2019", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>%  
+  lapply(., read_rds)
+
+
+
+
+# Set date/time as list element name
+
+date_time_names <- 
+  paste0(
+      file_list3$value %>%  stringr::str_sub(start = -17)
+  ) %>% 
+  str_sub(end = -5)
+        
+        
+        
+#date_time_names %>% as_tibble() %>% n_distinct()
+#date_time_names %>% as_tibble() %>% janitor::get_dupes(value)
+
+
+names(nldas_list3) <- date_time_names
+
+# write_rds(nldas_list3, path = "D:/output2/nldas_list3.rds")
+
+
+## Extract NLDAS from list for each location
+
+#nldas_list1 <-
+ # read_rds("D:/output/nldas_list1.rds")
+
+full_set_bases <- c(
+      "Fort Benning GA", "Fort Bragg","Fort Campbell",
+      "Fort Jackson", "Fort Polk", "Fort Hood",
+      "Fort Stewart", "Fort Leonard Wood", "Fort Riley",
+      "NTC and Fort Irwin", "Fort Bliss", "Fort Lewis",
+      "Fort Sill", "Fort Carson", "Fort Gordon", "Fort Drum",
+      "MCB Quantico", "MCRD San Diego", "Twentynine Palms Main Base",
+      "MCB Camp Lejeune", "MCRD Beaufort Parris Island", "MCB Camp Pendleton",
+      "Eglin AFB", "Lackland AFB", "Fort Sam Houston") %>% 
+  stringr::str_replace_all(., " ", "_") %>%
+  stringr::str_to_lower()
+  
+
+full_set_bases 
+
+
+# Extract by location from list and create an NLDAS object for each.
+
+for (i in seq_along(full_set_bases)) {
+
+nldas_list3 %>% 
+    lapply(function(x) x[i,]) %>% 
+    bind_rows(., .id = "date_time") %>% 
+  write_rds(., path = paste0("D:/output2019/",  full_set_bases[i], ".rds" ))
+}  
+
+```
+
+
+
+# Assemble master dataframe from 3 sets plus complete Pens/Portsmouth
+
+```{r}
+
+
+# Create index to substitute installation name into 
+# master  dataframe id
+
+df_index1 <- 
+  list.files("D:/output") %>%
+    as_tibble() %>% 
+    mutate(row_id = row_number(),
+           value = stringr::str_replace(value, ".rds", ""))
+
+# Master dataframe (wide format)
+
+nldas_df1 <-
+  list.files("D:/output", full.names = TRUE) %>%
+    map_dfr(.x = ., .f = read_rds, .id = "id") %>%
+  mutate(id = as.integer(id)) %>% 
+  left_join(df_index1, by = c("id" = "row_id")) %>% 
+  rename(installation = value) %>% 
+  dplyr::select(-id)
+
+nldas_df1
+
+
+
+
+
+df_index2 <- 
+  list.files("D:/output2019") %>%
+    as_tibble() %>% 
+    mutate(row_id = row_number(),
+           value = stringr::str_replace(value, ".rds", ""))
+
+# Master dataframe (wide format)
+
+nldas_df2 <-
+  list.files("D:/output2019", full.names = TRUE) %>%
+    map_dfr(.x = ., .f = read_rds, .id = "id") %>%
+  mutate(id = as.integer(id)) %>% 
+  left_join(df_index2, by = c("id" = "row_id")) %>% 
+  rename(installation = value) %>% 
+  dplyr::select(-id)
+
+nldas_df2
+
+
+
+df_index3 <- 
+  list.files("D:/base_nldas_rds") %>%
+    as_tibble() %>% 
+    mutate(row_id = row_number(),
+           value = stringr::str_replace(value, ".rds", ""))
+
+# Master dataframe (wide format)
+
+nldas_df3 <-
+  list.files("D:/base_nldas_rds", full.names = TRUE) %>%
+    map_dfr(.x = ., .f = read_rds, .id = "id") %>%
+  mutate(id = as.integer(id)) %>% 
+  left_join(df_index3, by = c("id" = "row_id")) %>% 
+  rename(installation = value) %>% 
+  dplyr::select(-id)
+
+nldas_df3
+
+
+
+
+nldas_hourly_df <-
+  nldas_df1 %>% 
+    bind_rows(nldas_df2) %>% 
+    bind_rows(nldas_df3)
+
+# write_rds(nldas_hourly_df, file = "D:/data/nldas_hourly_df.rds")
+
+
+```
+
+
+

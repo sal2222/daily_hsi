@@ -27,7 +27,9 @@
 # bases_extract
 
 - re-compile NLDAS hourly dataframe for all study installations, including Portsmouth and Pensacola (which were not part of previous extractions).
-- output: `nldas_hourly_df` (saved to externl drive) <-  read_rds(file = "D:/data/nldas_hourly_df.rds")
+- output: 
+    - `nldas_hourly_df` (saved to externl drive) <-  read_rds(file = "D:/data/nldas_hourly_df.rds")  
+    - `centroid_coords` <- read_rds(file = "D:/data/centroid_coords.rds")
 
 # indices_daily
 

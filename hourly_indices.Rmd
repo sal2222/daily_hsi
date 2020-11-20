@@ -1,0 +1,306 @@
+---
+title: "hourly_indices"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lutz)
+library(weathermetrics)
+library(devtools)
+library(wbgt) #devtools::install_github("mdljts/wbgt")
+library(furrr)
+
+
+```
+
+
+Read-in from external drive
+```{r}
+
+nldas_hourly_df <-
+  read_rds(file = "D:/data/nldas_hourly_df.rds")
+
+centroid_coords <-
+  read_rds(file = "D:/data/centroid_coords.rds")
+
+
+nldas_hourly_df %>% 
+  count(installation) 
+
+
+centroid_coords %>% 
+  count(site_name) 
+```
+
+
+
+Identify timezones for local time conversion
+```{r}
+
+
+time_zones <-
+  centroid_coords %>% 
+  dplyr::select(site_name, centroid) %>% 
+  mutate(time_zone = lutz::tz_lookup(centroid, crs = 4326, method = "accurate")) %>% 
+  as_tibble() %>% 
+  dplyr::select(site_name, time_zone) %>% 
+  mutate(site_name = stringr::str_replace_all(site_name, " ", "_"),
+         site_name =  stringr::str_to_lower(site_name),
+         site_name = recode(site_name, 
+                            naval_medical_center_portsmouth = "portsmouth_nmc",
+                            nas_pensacola = "pensacola_nas"))
+                            
+                            
+                            
+
+hourly_tz <-
+  nldas_hourly_df %>% 
+      mutate(utc_dttm = lubridate::ymd_hm(date_time)) %>% 
+      dplyr::select(utc_dttm, installation, everything(), -date_time) %>% 
+      left_join(time_zones, by = c("installation" = "site_name")) %>%  
+      dplyr::mutate(local_dttm = dplyr::case_when(
+        .$time_zone == "America/New_York" ~ as.character(with_tz(.$utc_dttm, tz = "America/New_York")),
+        .$time_zone == "America/Chicago" ~ as.character(with_tz(.$utc_dttm, tz = "America/Chicago")), 
+        .$time_zone == "America/Denver" ~ as.character(with_tz(.$utc_dttm, tz = "America/Denver")),
+        .$time_zone == "America/Phoenix" ~ as.character(with_tz(.$utc_dttm, tz = "America/Phoenix")),
+        .$time_zone == "America/Los_Angeles" ~ as.character(with_tz(.$utc_dttm, tz = "America/Los_Angeles"))),
+        local_dttm = lubridate::ymd_hms(local_dttm)) %>% 
+    dplyr::select(utc_dttm, local_dttm, everything(), -time_zone)
+
+
+hourly_tz[!complete.cases(hourly_tz),]
+```
+
+
+Meteorology conversions and heat index
+From original NLDAS variables, add windspeed, temp in F and C, relative humidity, dew point (C), heat index (F)
+
+Restrict RH to 100%
+
+```{r}
+
+hourly_indices <-
+  hourly_tz %>% 
+    mutate(windspeed = sqrt(UGRD^2 + VGRD^2),
+           tmp_f = weathermetrics::convert_temperature(TMP, old_metric = "kelvin", new_metric = "fahrenheit"),
+           tmp_c = weathermetrics::convert_temperature(TMP, old_metric = "kelvin", new_metric = "celsius"),
+           rh = humidity::SH2RH(SPFH, TMP, p = PRES, isK = TRUE),
+           rh = case_when(
+             rh > 100 ~ 100,
+             rh <= 100 ~ rh
+           ),
+           dp_c = humidity.to.dewpoint(rh = rh, t = tmp_c, temperature.metric = "celsius"),
+           heat_index = weathermetrics::heat.index(t = tmp_f,
+                           rh = rh,
+                           temperature.metric = "fahrenheit",
+                           output.metric = "fahrenheit",
+                           round = 2))  
+
+
+write_rds(hourly_indices, file = "D:/data/hourly_indices.rds")
+
+```
+
+
+Wet Bulb Globe Temperature (WBGT) Estimate
+
+
+```{r}
+
+lat_lon <-
+  centroid_coords %>% 
+     mutate(site_name = stringr::str_replace_all(site_name, " ", "_"),
+           site_name =  stringr::str_to_lower(site_name),
+           site_name = recode(site_name, 
+                              naval_medical_center_portsmouth = "portsmouth_nmc",
+                              nas_pensacola = "pensacola_nas")) %>% 
+    as_tibble() %>% 
+    dplyr::select(site_name, centroid) %>%  
+    mutate(longitude = unlist(map(centroid,1)),
+           latitude = unlist(map(centroid,2))
+  ) %>% 
+    dplyr::select(-centroid)
+
+write_rds(lat_lon, file = "D:/data/lat_lon.rds")
+
+lat_lon <- read_rds(file = "D:/data/lat_lon.rds")
+```
+
+WBGT with mdljts wrapper. Create a dataframe with the required columns for the wbgt_df function.
+
+
+```{r}
+
+hourly_indices <-
+  read_rds(file = "D:/data/hourly_indices.rds")
+
+# Create dataframe with columns needed for wbgt::wbgt_df (mdljts wrapper)
+
+                     
+# Join lat and lon
+hourly_indices <-
+  hourly_indices %>% 
+  left_join(lat_lon, by = c("installation" = "site_name")) %>% 
+  dplyr::select(utc_dttm, local_dttm, installation, longitude, latitude, everything())
+
+hourly_indices 
+
+# Create dataframe for `wbgt_df` function
+
+wbgt_mdljts_df <-
+  hourly_indices %>%
+    drop_na %>%  #complete cases (missing a few data points from one hour ~1994)
+    mutate(
+      year = lubridate::year(local_dttm), 
+      month = lubridate::month(local_dttm), 
+      day = lubridate::day(local_dttm), 
+      hour = lubridate::hour(local_dttm), 
+      minute = lubridate::minute(local_dttm), 
+      gmt = lubridate::hour(utc_dttm), 
+      avg = 60, 
+      lat = latitude, 
+      lon = longitude, 
+      solar = DSWRF, 
+      pres = PRES / 100, 
+      Tair = tmp_c, 
+      relhum = rh, 
+      speed = windspeed, 
+      zspeed = 10, 
+      dT = 0, 
+      urban = 0) %>% 
+  dplyr::select(year:urban)
+
+wbgt_mdljts_df
+
+write_rds(wbgt_mdljts_df, file = "D:/data/wbgt_mdljts_df.rds")
+
+wbgt_mdljts_df <-
+  read_rds(file = "D:/data/wbgt_mdljts_df.rds")
+
+
+# Execute WBGT wrapper on entire dataframe 
+
+# By dataframe - only returns WBGT, not componnents (wet bulb)
+wbgt_mdljts <-     
+ wbgt::wbgt_df(wbgt_mdljts_df) 
+
+write_rds(wbgt_mdljts, file = "D:/data/wbgt_mdljts.rds")
+
+
+```
+
+
+Execute WBGT by row instead of with entire dataframe (retrieves wet bulb and black bulb components).
+Issue: run out of memory running `pmap` over 7 million+ observations
+
+Nest by installation
+
+```{r}
+
+
+
+
+wbgt_mdljts_df_nest <-
+  hourly_indices %>%
+    drop_na %>%  #complete cases (missing a few data points from one hour ~1994)
+    mutate(
+      year = lubridate::year(local_dttm), 
+      month = lubridate::month(local_dttm), 
+      day = lubridate::day(local_dttm), 
+      hour = lubridate::hour(local_dttm), 
+      minute = lubridate::minute(local_dttm), 
+      gmt = lubridate::hour(utc_dttm), 
+      avg = 60, 
+      lat = latitude, 
+      lon = longitude, 
+      solar = DSWRF, 
+      pres = PRES / 100, 
+      Tair = tmp_c, 
+      relhum = rh, 
+      speed = windspeed, 
+      zspeed = 10, 
+      dT = 0, 
+      urban = 0) %>% 
+  dplyr::select(installation, year:urban) %>%
+  dplyr::group_by(installation) %>% 
+  tidyr::nest()
+
+wbgt_mdljts_df_nest
+
+write_rds(wbgt_mdljts_df_nest, file = "D:/data/wbgt_mdljts_df_nest.rds")
+
+wbgt_mdljts_df_nest <-
+  read_rds(file = "D:/data/wbgt_mdljts_df_nest.rds")
+
+
+
+memory.limit()
+memory.limit(size = 64000)
+
+
+# by row to obtain wet bulb
+
+plan(multisession, workers = 2)
+
+
+wbgt_mdljts2 <-
+  wbgt_mdljts_df_nest %>% 
+    mutate(wbgt_param =
+        map(data, ~pmap(., wbgt::wbgt))     
+)
+        
+          
+              
+
+
+
+wbgt_mdljts_df_nest$data
+
+
+wbgt_mdljts2 <-
+  wbgt_mdljts_df_nest %>% 
+  mutate(wbgt =
+    furrr::future_pmap(data, wbgt::wbgt, .progress = TRUE)
+)
+
+
+wbgt_mdljts_df %>% 
+  head(1) %>% 
+  pmap(., wbgt::wbgt) %>% 
+  unlist() %>% .[19:23] %>% unname()
+  bind_rows()
+
+
+
+
+  
+
+wbgt_mdljts_df %>% 
+  head() %>% 
+  pmap(., wbgt::wbgt) %>% 
+  map(., unlist) %>% 
+  map_df(.,bind_rows) 
+
+    
+wbgt_mdljts_df %>% 
+  head(1) %>% 
+  pmap(., wbgt::wbgt) %>% 
+  unlist() %>% .[19:23] %>% unname()
+  bind_rows()
+  
+  
+
+    
+
+write_rds(wbgt_mdljts2, file = "D:/data/wbgt_mdljts2.rds")
+```
+
+```{r}
+
+```
+

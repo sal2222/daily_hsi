@@ -387,6 +387,12 @@ nldas_hourly_df <-
 
 # write_rds(nldas_hourly_df, file = "D:/data/nldas_hourly_df.rds")
 
+nldas_hourly_df <-
+  read_rds(file = "D:/data/nldas_hourly_df.rds")
+
+centroid_coords <-
+  read_rds(file = "D:/data/centroid_coords.rds")
+
 
 ```
 

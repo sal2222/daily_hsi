@@ -11,7 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lutz)
 library(weathermetrics)
-library(mdljts/wbdt)
 library(devtools)
 library(wbgt) #devtools::install_github("mdljts/wbgt")
 
@@ -253,41 +252,70 @@ wbgt_mdljts2 <-
           
 # write_rds(wbgt_mdljts2, file = "D:/data/wbgt_mdljts2.rds")
 
+wbgt_mdljts2 <-
+  read_rds(file = "D:/data/wbgt_mdljts2.rds")
+
+# Unlist
+
+wbgt_unlist <-
+  wbgt_mdljts2 %>% 
+    mutate(wbgt_unlist=
+             map(wbgt_param, unlist)
+           ) %>% 
+  dplyr::select(-wbgt_param)
+
+
+# write_rds(wbgt_unlist, file = "D:/data/wbgt_unlist.rds")
+
+wbgt_unlist <-
+  read_rds(file = "D:/data/wbgt_unlist.rds")
+
+
+wbgt_unlist %>% 
+gt_unlist[1]  wb
+
+
+# wbgt_unlist$wbgt_unlist %>% str()
 
 
 
+# Convert from vector to dataframe
+
+wbgt_enframe <-
+  wbgt_unlist %>%
+    mutate(wbgt_enframe = 
+             map(wbgt_unlist, tibble::enframe)
+           ) %>% 
+             dplyr::select(-wbgt_unlist)
 
 
-wbgt_mdljts_df %>% 
-  head(1) %>% 
-  pmap(., wbgt::wbgt) %>% 
-  unlist() %>% .[19:23] %>% unname()
-  bind_rows()
 
+wbgt_enframe$wbgt_enframe %>% str()
 
+# Convert from long df to wide df
 
+wbgt_wide <-
+  wbgt_enframe %>%
+  mutate(wbgt_wide =
+      map(.x = wbgt_enframe, .f = ~tidyr::pivot_wider(.x, names_from = name, values_from = value))
+  ) 
 
-  
+wbgt_all_df <-
+  wbgt_wide$wbgt_wide %>% 
+     bind_rows() %>% 
+     dplyr::select(c("Tg", "Tnwb", "Tpsy", "Twbg", "status")) %>% 
+    unnest(cols = c(Tg, Tnwb, Tpsy, Twbg, status))
 
-wbgt_mdljts_df %>% 
-  head() %>% 
-  pmap(., wbgt::wbgt) %>% 
-  map(., unlist) %>% 
-  map_df(.,bind_rows) 
+ 
+ 
+ 
+# join WBGT estimates to hourly_indices df
 
-    
-wbgt_mdljts_df %>% 
-  head(1) %>% 
-  pmap(., wbgt::wbgt) %>% 
-  unlist() %>% .[19:23] %>% unname()
-  bind_rows()
-  
-  
+hourly_indices_all <-
+  hourly_indices %>%
+      drop_na %>%
+    bind_cols(wbgt_all_df)
 
-    
-
-
-```
-
+write_rds(hourly_indices_all, file = "D:/data/hourly_indices_all.rds")
 ```
 

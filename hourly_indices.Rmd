@@ -11,9 +11,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lutz)
 library(weathermetrics)
+library(mdljts/wbdt)
 library(devtools)
 library(wbgt) #devtools::install_github("mdljts/wbgt")
-library(furrr)
+
 
 
 ```
@@ -192,18 +193,16 @@ wbgt_mdljts <-
 write_rds(wbgt_mdljts, file = "D:/data/wbgt_mdljts.rds")
 
 
-```
 
+```
 
 Execute WBGT by row instead of with entire dataframe (retrieves wet bulb and black bulb components).
 Issue: run out of memory running `pmap` over 7 million+ observations
 
-Nest by installation
-
 ```{r}
 
 
-
+# Nest by installation
 
 wbgt_mdljts_df_nest <-
   hourly_indices %>%
@@ -245,9 +244,6 @@ memory.limit(size = 64000)
 
 # by row to obtain wet bulb
 
-plan(multisession, workers = 2)
-
-
 wbgt_mdljts2 <-
   wbgt_mdljts_df_nest %>% 
     mutate(wbgt_param =
@@ -255,18 +251,11 @@ wbgt_mdljts2 <-
 )
         
           
-              
+# write_rds(wbgt_mdljts2, file = "D:/data/wbgt_mdljts2.rds")
 
 
 
-wbgt_mdljts_df_nest$data
 
-
-wbgt_mdljts2 <-
-  wbgt_mdljts_df_nest %>% 
-  mutate(wbgt =
-    furrr::future_pmap(data, wbgt::wbgt, .progress = TRUE)
-)
 
 
 wbgt_mdljts_df %>% 
@@ -297,10 +286,8 @@ wbgt_mdljts_df %>%
 
     
 
-write_rds(wbgt_mdljts2, file = "D:/data/wbgt_mdljts2.rds")
-```
 
-```{r}
+```
 
 ```
 

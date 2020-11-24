@@ -313,9 +313,163 @@ wbgt_all_df <-
 
 hourly_indices_all <-
   hourly_indices %>%
-      drop_na %>%
+      drop_na %>%pow
     bind_cols(wbgt_all_df)
 
 write_rds(hourly_indices_all, file = "D:/data/hourly_indices_all.rds")
+
+
+hourly_indices_all %>% 
+  summary(status)
+
+
+hourly_indices_all %>% 
+  filter(Twbg %in% NA)
+
+
+# 6 wbgt NA observations from 1994-04-16 at Fort Lewis (will not affect study)
+
+```
+
+
+
+## Run WBGT using `urban` exponents
+
+```{r}
+
+
+# Nest by installation
+
+wbgt_mdljts_df_nest_u <-
+  hourly_indices %>%
+    drop_na %>%  #complete cases (missing a few data points from one hour ~1994)
+    mutate(
+      year = lubridate::year(local_dttm), 
+      month = lubridate::month(local_dttm), 
+      day = lubridate::day(local_dttm), 
+      hour = lubridate::hour(local_dttm), 
+      minute = lubridate::minute(local_dttm), 
+      gmt = lubridate::hour(utc_dttm), 
+      avg = 60, 
+      lat = latitude, 
+      lon = longitude, 
+      solar = DSWRF, 
+      pres = PRES / 100, 
+      Tair = tmp_c, 
+      relhum = rh, 
+      speed = windspeed, 
+      zspeed = 10, 
+      dT = 0, 
+      urban = 1) %>% 
+  dplyr::select(installation, year:urban) %>%
+  dplyr::group_by(installation) %>% 
+  tidyr::nest()
+
+wbgt_mdljts_df_nest_u
+
+write_rds(wbgt_mdljts_df_nest_u, file = "D:/data/wbgt_mdljts_df_nest_u.rds")
+
+wbgt_mdljts_df_nest_u <-
+  read_rds(file = "D:/data/wbgt_mdljts_df_nest_u.rds")
+
+
+
+memory.limit()
+memory.limit(size = 64000)
+
+
+# by row to obtain wet bulb
+
+wbgt_mdljts2_u <-
+  wbgt_mdljts_df_nest_u %>% 
+    mutate(wbgt_param =
+        map(data, ~pmap(., wbgt::wbgt))     
+)
+        
+          
+write_rds(wbgt_mdljts2_u, file = "D:/data/wbgt_mdljts2_u.rds")
+
+wbgt_mdljts2_u <-
+  read_rds(file = "D:/data/wbgt_mdljts2_u.rds")
+
+# Unlist
+
+wbgt_unlist_u <-
+  wbgt_mdljts2_u %>% 
+    mutate(wbgt_unlist =
+             map(wbgt_param, unlist)
+           ) %>% 
+  dplyr::select(-wbgt_param)
+
+
+write_rds(wbgt_unlist_u, file = "D:/data/wbgt_unlist_u.rds")
+
+wbgt_unlist_u <-
+  read_rds(file = "D:/data/wbgt_unlist_u.rds")
+
+
+wbgt_unlist_u %>% 
+gt_unlist[1]  wb
+
+
+# wbgt_unlist$wbgt_unlist %>% str()
+
+
+
+# Convert from vector to dataframe
+
+wbgt_enframe_u <-
+  wbgt_unlist_u %>%
+    mutate(wbgt_enframe = 
+             map(wbgt_unlist, tibble::enframe)
+           ) %>% 
+             dplyr::select(-wbgt_unlist)
+
+
+
+wbgt_enframe_u$wbgt_enframe %>% str()
+
+# Convert from long df to wide df
+
+wbgt_wide_u <-
+  wbgt_enframe_u %>%
+  mutate(wbgt_wide =
+      map(.x = wbgt_enframe, .f = ~tidyr::pivot_wider(.x, names_from = name, values_from = value))
+  ) 
+
+wbgt_all_df_u <-
+  wbgt_wide$wbgt_wide %>% 
+     bind_rows() %>% 
+     dplyr::select(c("Tg_u" = "Tg", 
+                     "Tnwb_u" = "Tnwb", 
+                     "Tpsy_u" = "Tpsy",
+                     "Twbg_u" = "Twbg")) %>% 
+    unnest(cols = c(Tg_u, Tnwb_u, Tpsy_u, Twbg_u))
+
+ 
+ 
+
+
+
+
+ 
+# join WBGT estimates to hourly_indices df
+
+hourly_indices_all <-
+  hourly_indices %>%
+      drop_na %>%pow
+    bind_cols(wbgt_all_df)
+
+write_rds(hourly_indices_all, file = "D:/data/hourly_indices_all.rds")
+
+
+hourly_indices_all %>% 
+  summary(status)
+
+
+hourly_indices_all %>% 
+  filter(Twbg %in% NA)
+
+
 ```
 

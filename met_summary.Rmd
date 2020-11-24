@@ -1,0 +1,79 @@
+---
+title: "met_summary"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(tidyverse)
+library(lubridate)
+
+
+```
+
+
+Load hourly index dataframe 
+
+```{r}
+
+hourly_indices_all <-
+  read_rds(file = "D:/data/hourly_indices_all.rds")
+
+hourly_indices_all %>% 
+  summary(status)
+
+```
+
+
+
+
+# Daily/Monthly/Annual indices
+
+```{r}
+
+daily_indices <-
+  hourly_indices_all %>%
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    group_by(installation, lubridate::date(local_dttm)) %>%
+    dplyr::summarise_at(
+          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .funs = c(mean = "mean", max = "max", min = "min"))
+
+month_yr_indices <-
+  hourly_indices_all %>%
+    drop_na %>%
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    group_by(installation, lubridate::month(local_dttm), lubridate::year(local_dttm)) %>%
+    dplyr::summarise_at(
+          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .funs = c(mean = "mean", max = "max", "max99" = ~quantile(., probs = 0.99)))
+
+
+monthly_indices <-
+  hourly_indices_all %>%
+    drop_na %>%
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    group_by(installation, lubridate::month(local_dttm)) %>%
+    dplyr::summarise_at(
+          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .funs = c(mean = "mean", max = "max", "max99" = ~quantile(., probs = 0.99))) 
+
+
+annual_indices <-
+  hourly_indices_all %>%
+    drop_na %>%
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    group_by(installation, lubridate::year(local_dttm)) %>%
+    dplyr::summarise_at(
+          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .funs = c(mean = "mean", max = "max", "max99_5" = ~quantile(., probs = 0.995))) 
+
+```
+
+
+
+

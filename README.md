@@ -31,6 +31,19 @@
     - `nldas_hourly_df` (saved to externl drive) <-  read_rds(file = "D:/data/nldas_hourly_df.rds")  
     - `centroid_coords` <- read_rds(file = "D:/data/centroid_coords.rds")
 
-# indices_daily
+# hourly_indices
 
 - expand dataframe with indices and unit conversions
+  - add timezone, local time
+  - windspeed from UGRD/VGRD
+  - temp in deg F and C from K
+  - RH from SPFH, TMP, PRES
+  - dew point from RH and TMP
+  - heat index from Temp(F) and RH
+  - WBGT from time (year, month, day, hour, minute, gmt, avg period), lat/lon, DSWRF, PRES/100, temp(C), RH, windspeed
+  - Urban and rural WBGT estimates
+ - output: `hourly_indices_all` 7,617,632 obs of 25 variables
+ 
+ 
+
+    

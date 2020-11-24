@@ -437,8 +437,11 @@ wbgt_wide_u <-
       map(.x = wbgt_enframe, .f = ~tidyr::pivot_wider(.x, names_from = name, values_from = value))
   ) 
 
+
+wbgt_wide_u$wbgt_wide
+
 wbgt_all_df_u <-
-  wbgt_wide$wbgt_wide %>% 
+  wbgt_wide_u$wbgt_wide %>% 
      bind_rows() %>% 
      dplyr::select(c("Tg_u" = "Tg", 
                      "Tnwb_u" = "Tnwb", 
@@ -447,20 +450,34 @@ wbgt_all_df_u <-
     unnest(cols = c(Tg_u, Tnwb_u, Tpsy_u, Twbg_u))
 
  
- 
 
 
-
-
- 
-# join WBGT estimates to hourly_indices df
+# join WBGT estimates (urban exponents) to hourly_indices df
 
 hourly_indices_all <-
   hourly_indices %>%
-      drop_na %>%pow
+      drop_na %>%
     bind_cols(wbgt_all_df)
 
+
+
+
+# Join "urban" wbgt estimates
+
+
+hourly_indices_all <-
+  hourly_indices_all %>%
+    dplyr::select(-status) %>% 
+    bind_cols(wbgt_all_df_u)
+
+
+
+
 write_rds(hourly_indices_all, file = "D:/data/hourly_indices_all.rds")
+
+hourly_indices_all <-
+  read_rds(file = "D:/data/hourly_indices_all.rds")
+
 
 
 hourly_indices_all %>% 
@@ -468,7 +485,7 @@ hourly_indices_all %>%
 
 
 hourly_indices_all %>% 
-  filter(Twbg %in% NA)
+  filter(Twbg %in% NA) 
 
 
 ```

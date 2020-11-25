@@ -45,5 +45,12 @@
  - output: `hourly_indices_all` 7,617,632 obs of 25 variables
  
  
-
+# met_summary
+- create 
+  - daily indices (from hourly): mean, max, min, top percentile (95th)
+  - month-year indices
+  - monthly indices
+  - annual indices
+  - daily anomalies (mean daily temp, heat index, wet bulb, WBGT)
+- 
     

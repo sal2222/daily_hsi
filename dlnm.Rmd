@@ -31,7 +31,7 @@ daily_anomalies <- read_rds(file = "D:/data/daily_anomalies.rds")
 
 daily_nldas <-
   daily_indices %>% 
-    left_join(dplyr::select(daily_anomalies, installation, date, tmp_mean_anom, hi_mean_anom, wb_mean_anom, wbgt_mean_anom), by = c("installation", "date")
+    left_join(dplyr::select(daily_anomalies, installation, date, tmp_mean_anom, hi_mean_anom, wbgt_mean_anom), by = c("installation", "date")
     )
 
 # write_rds(daily_nldas, file = "D:/data/daily_nldas.rds")

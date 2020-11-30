@@ -42,7 +42,8 @@
   - heat index from Temp(F) and RH
   - WBGT from time (year, month, day, hour, minute, gmt, avg period), lat/lon, DSWRF, PRES/100, temp(C), RH, windspeed
   - Urban and rural WBGT estimates
- - output: `hourly_indices_all` 7,617,632 obs of 25 variables
+ - output: `hourly_indices_all` 7,617,632 obs of 25 variables (this contained `wbgt` mis-matches)
+    `hourly_nldas` 7,617,632  obs of 19 variables
  
  
 # met_summary

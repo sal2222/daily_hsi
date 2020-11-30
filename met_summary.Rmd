@@ -20,10 +20,10 @@ Load hourly index dataframe
 
 ```{r}
 
-hourly_indices_all <-
-  read_rds(file = "D:/data/hourly_indices_all.rds")
+hourly_nldas <-
+  read_rds(file = "D:/data/hourly_nldas.rds")
 
-hourly_indices_all %>% 
+hourly_nldas %>% 
   summary(status)
 
 ```
@@ -36,46 +36,46 @@ hourly_indices_all %>%
 ```{r}
 
 daily_indices <-
-  hourly_indices_all %>%
+  hourly_nldas  %>%
     drop_na %>%
-    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt_u) %>% 
     group_by(installation, lubridate::date(local_dttm)) %>%
     dplyr::summarise_at(
-          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .vars = vars(tmp_f, heat_index, wbgt_u),
           .funs = c(mean = "mean", max = "max", min = "min", "max95" = ~quantile(., probs = 0.95)))
 
 #write_rds(daily_indices, file = "D:/data/daily_indices.rds")
 
 
 month_yr_indices <-
-  hourly_indices_all %>%
+  hourly_nldas %>%
     drop_na %>%
-    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt_u) %>% 
     group_by(installation, lubridate::month(local_dttm), lubridate::year(local_dttm)) %>%
     dplyr::summarise_at(
-          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .vars = vars(tmp_f, heat_index, wbgt_u),
           .funs = c(mean = "mean", max = "max", "max99" = ~quantile(., probs = 0.99)))
 
 #write_rds(month_yr_indices, file = "D:/data/month_yr_indices.rds")
 
 
 monthly_indices <-
-  hourly_indices_all %>%
+  hourly_nldas %>%
     drop_na %>%
-    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    dplyr::select(installation, local_dttm, tmp_f, heat_index,wbgt_u) %>% 
     group_by(installation, lubridate::month(local_dttm)) %>%
     dplyr::summarise_at(
-          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .vars = vars(tmp_f, heat_index, wbgt_u),
           .funs = c(mean = "mean", max = "max", "max99" = ~quantile(., probs = 0.99))) 
 
 
 annual_indices <-
-  hourly_indices_all %>%
+   hourly_nldas %>%
     drop_na %>%
-    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt_u) %>% 
     group_by(installation, lubridate::year(local_dttm)) %>%
     dplyr::summarise_at(
-          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .vars = vars(tmp_f, heat_index, wbgt_u),
           .funs = c(mean = "mean", max = "max", "max99_5" = ~quantile(., probs = 0.995))) 
 
 #write_rds(annual_indices, file = "D:/data/annual_indices.rds")
@@ -92,12 +92,12 @@ https://sal2222.github.io/heat_stress/climatology.html
 #month-day for climatologies
 
 month_day_indices <-
-  hourly_indices_all %>%
+  hourly_nldas %>%
     drop_na %>%
-    dplyr::select(installation, local_dttm, tmp_f, heat_index, Tnwb_u, Twbg_u) %>% 
+    dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt_u) %>% 
     group_by(installation, lubridate::month(local_dttm), lubridate::day(local_dttm)) %>%
     dplyr::summarise_at(
-          .vars = vars(tmp_f, heat_index, Tnwb_u, Twbg_u),
+          .vars = vars(tmp_f, heat_index, wbgt_u),
           .funs = (mean = "mean")) %>% 
   dplyr::rename(month = `lubridate::month(local_dttm)`,
                 day = `lubridate::day(local_dttm)`)
@@ -107,7 +107,7 @@ month_day_indices <-
 daily_anomalies <-
   daily_indices %>%
     dplyr::select(installation, date = `lubridate::date(local_dttm)`, 
-  tmp_f_mean, heat_index_mean, Tnwb_u_mean, Twbg_u_mean) %>%
+  tmp_f_mean, heat_index_mean, wbgt_u_mean) %>%
     mutate(month = lubridate::month(date),
          day = lubridate::day(date)) %>% 
     left_join(., month_day_indices, 
@@ -115,8 +115,7 @@ daily_anomalies <-
 ) %>% 
   mutate(tmp_mean_anom = tmp_f_mean - tmp_f,
          hi_mean_anom = heat_index_mean - heat_index,
-         wb_mean_anom = Tnwb_u_mean - Tnwb_u,
-         wbgt_mean_anom = Twbg_u_mean - Twbg_u)
+         wbgt_mean_anom = wbgt_u_mean - wbgt_u)
 
 # write_rds(daily_anomalies, file = "D:/data/daily_anomalies.rds")
 

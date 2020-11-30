@@ -239,10 +239,6 @@ write_rds(wbgt_mdljts_u, file = "D:/data/wbgt_mdljts_u.rds")
 
 
 
-
-
-
-
 hourly_nldas <-
   hourly_indices %>%
     drop_na %>% 

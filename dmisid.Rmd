@@ -3,6 +3,8 @@ title: "dmisid"
 author: "SL"
 date: "6/9/2020"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -78,6 +80,9 @@ dmisid_distinct <-
   
 # dmisid_distinct %>%   
 #   count(dmis_fy)
+
+
+write_rds(dmisid_distinct, file = "data/dmisid_distinct.Rds")
 ```
 
 ## Link to encounters

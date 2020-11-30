@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(lubridate)
-
+library(forcats)
 
 ```
 
@@ -120,6 +120,54 @@ daily_anomalies <-
 
 # write_rds(daily_anomalies, file = "D:/data/daily_anomalies.rds")
 
+
+```
+
+
+```{r}
+
+annual_indices %>%
+  rename(year = `lubridate::year(local_dttm)`) %>% 
+  filter(year > 1989 & year < 2019) %>% 
+  ggplot(aes(x = year, y = Twbg_u_mean, color = installation)) +
+  geom_point() +
+  geom_smooth()
+
+
+annual_indices %>%
+  rename(year = `lubridate::year(local_dttm)`) %>% 
+  filter(year > 1989 & year < 2019) %>% 
+  ggplot(aes(x = year, y = Tnwb_u_max99_5, color = installation)) +
+  geom_point() +
+  geom_smooth()
+
+
+
+
+annual_indices %>%
+  rename(year = `lubridate::year(local_dttm)`) %>% 
+  filter(year > 1989 & year < 2019) %>% 
+  ggplot(aes(x = fct_reorder(installation, Tnwb_u_max99_5, .fun = median, .desc = TRUE), y = Tnwb_u_max99_5)) +
+  geom_boxplot() +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90))
+
+
+
+annual_indices %>%
+  rename(year = `lubridate::year(local_dttm)`) %>% 
+  filter(year > 1989 & year < 2019) %>% 
+  ggplot(aes(x = fct_reorder(installation, Tnwb_u_max, .fun = median, .desc = TRUE), y = Tnwb_u_max)) +
+  geom_boxplot() +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90))
+
+
+
+annual_indices %>% 
+  rename(year = `lubridate::year(local_dttm)`) %>% 
+  filter(year %in% 2019) %>% View()
+  
 
 ```
 

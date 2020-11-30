@@ -1,0 +1,95 @@
+---
+title: "descriptive"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(survival)
+library(splines)
+library(broom)
+library(dlnm)
+library(plotly)
+library(lubridate)
+library(corrplot)
+library(table1)
+
+```
+
+
+
+Read in daily NLDAS
+
+```{r}
+
+daily_nldas <- read_rds(file = "D:/data/daily_nldas.rds")
+
+```
+
+
+"Table 1"
+
+```{r}
+
+# Outcomes 
+
+cc_exposure_df <-
+  read_rds(file = "D:/cc_exposure_df.rds")
+
+table1::table1(~ factor(source) + factor(hsi) + factor(service) | case, data = cc_exposure_df)
+
+
+table1::table1(~ factor(installation_name) | case, data = cc_exposure_df)
+
+
+# Exposure
+
+nldas_1998 <- daily_nldas %>% 
+  filter(lubridate::year(date) %in% 1998:2019)
+
+table1::table1(~ tmp_f_mean + heat_index_mean + Twbg_u_mean | factor(installation), data = nldas_1998)
+
+```
+
+
+
+
+
+Compare WBGT to Temp and Heat Index 
+```{r}
+
+
+daily_nldas %>% 
+  drop_na %>% 
+  filter(lubridate::year(date) %in% 1998:2019) %>% 
+  dplyr::select(tmp_f_mean, heat_index_mean, Twbg_u_mean, Tnwb_u_mean) %>% 
+  ggplot(aes(x = tmp_f_mean, y = Twbg_u_mean, color = installation)) +
+    geom_point(aes(alpha = 0.2, size = 0.2)) +
+    geom_smooth(method = "lm") +
+    theme_bw()
+
+
+
+daily_nldas %>% 
+  ungroup() %>% 
+  filter(lubridate::year(date) %in% 1998:2019) %>% 
+  dplyr::select(tmp_f_mean, heat_index_mean, Twbg_u_mean, Tnwb_u_mean) %>% 
+  cor()
+
+
+daily_nldas %>% 
+  filter(lubridate::year(date) %in% 1998:2019) %>% 
+  dplyr::select(installation, tmp_f_mean, heat_index_mean, Twbg_u_mean, Tnwb_u_mean) %>% 
+  group_by(installation) %>% 
+    summarise(r = cor(tmp_f_mean, Twbg_u_mean)) %>% View()
+
+  
+
+
+
+```
+

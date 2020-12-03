@@ -53,6 +53,11 @@ nldas_1998 <- daily_nldas %>%
 
 table1::table1(~ tmp_f_mean + heat_index_mean + Twbg_u_mean | factor(installation), data = nldas_1998)
 
+# Indiv risk factors
+
+table1::table1(~ factor(sex) + factor(age) + factor(grade) + bmi | case, data = cc_exposure_df)
+
+
 ```
 
 

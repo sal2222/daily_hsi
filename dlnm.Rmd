@@ -121,6 +121,10 @@ cc_exposure_df <-
 
 #write_rds(cc_exposure_df, file = "D:/data/cc_exposure_df.rds")
 
+cc_exposure_df <-
+  read_rds(file = "D:/data/cc_exposure_df.rds")
+
+
 # inspect: which cases are not matched? (all before 1998?)
 
 cc_exposure_df %>% 

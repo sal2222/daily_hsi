@@ -1,0 +1,349 @@
+---
+title: "knox_extract"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(sf) 
+library(tidyverse)
+library(viridis)
+library(rvest)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(rgeos)
+library(lwgeom)
+library(cowplot)
+library(purrr)
+library(purrrlyr)
+library(tmap)
+library(raster)
+library(ncdf4)
+library(ncdump)
+library(lubridate)
+library(flipTime)
+library(fuzzyjoin)
+library(RNetCDF)
+library(tidync)
+library(furrr)
+library(humidity)
+library(HeatStress) #devtools::install_github("anacv/HeatStress")
+library(weathermetrics)
+library(wbgt)  #devtools::install_github("mdljts/wbgt")
+library(easyNCDF)
+library(devtools)
+library(tabularaster) #devtools::install_github("hypertidy/tabularaster")
+
+# devtools::install_github("hypertidy/silicate")
+#.libPaths()
+```
+
+## Load Military Installations, Ranges, and Training Areas (MIRTA) Dataset
+Accessed from: https://catalog.data.gov/dataset/military-installations-ranges-and-training-areas
+Metadata updated date: January 18, 2017
+```{r load_shapefile}
+#Ref: http://strimas.com/r/tidy-sf/
+bases <- st_read("D:/heat/installations_ranges/MIRTA_Boundaries.shp") %>% 
+  janitor::clean_names()
+
+
+
+# Filter Fort Knox
+# convert to `st_geometrty` SpatialPolygons DataFrame
+# Identify centroid of shapefile
+
+knox_sfc <-
+  bases %>% 
+    dplyr::filter(
+        str_detect(.$site_name, "Knox")) %>% 
+    mutate(centroid = st_centroid(geometry)) %>% 
+    dplyr::select(-c("component", "joint_base", "country", "oper_stat"))
+
+
+# write_rds(knox_sfc, path = "data/knox_sfc.rds")
+
+
+```
+
+
+## Extract NLDAS-2
+
+extract variables from NLDAS-2 netCDF files by converting .nc4 to raster and selecting by raster cell position. It includes a function to extract a single file and applies purrr:map2_dfc to map over each file and each defined variable.
+
+
+
+```{r extract_variable_names}
+
+#NLDAS files from 19900101 - 20190715
+
+file_list <- list.files(path = "D:/nldas", pattern = "^.*\\.(nc4|NC4|Nc4|Nc4)$",
+                        full.names = FALSE) %>% 
+  as_tibble() %>% 
+  mutate(date = value %>% 
+           stringr::str_extract("[1-2][0-9]{7}") %>% lubridate::ymd(),
+         hour = value %>% 
+           stringr::str_extract("[0-2][0-9][0]{2}") %>% as_factor(),
+         path = paste0("D:/nldas/", value)) %>% 
+  dplyr::select(value, path, date, hour) %>% 
+  filter(date >= "1990-01-01")
+
+file_list %>% tail()
+
+file_list <-
+  file_list %>% 
+    slice(20158:258901)
+
+
+
+nldas_variables <- c("TMP", "SPFH", "PRES", "UGRD", "VGRD", "DSWRF")
+
+```
+
+## Raster: Read ncdf4 files
+
+```{r id_raster_cells}
+coordinates_matrix <- st_coordinates(knox_sfc$centroid)
+
+# Open raster from sample NLDAS file
+
+r <- raster(file_list$path[1], varname = "TMP", quick = "TRUE")
+
+
+# ID NLDAS grid cells corresponding to centroid coordinates
+
+cell <- tabularaster::cellnumbers(r, coordinates_matrix)
+
+
+# Define file paths 
+
+nldas_path <- "D:/nldas/"
+
+cells <- cell$cell_
+
+sites <- knox_sfc$site_name
+
+cell_key <- cbind(sites, cells)
+
+output_path <- "D:/nldas_knox/"
+
+file_names <-
+  file_list$value
+
+
+```
+
+
+```{r extract_function_map}
+
+# multiple variables
+
+  
+extract_single_file <- function(ncdf_single_file, nldas_var) {  
+  hourly_df <-   
+  ncdf_single_file %>% 
+      file.path(nldas_path, .) %>% 
+        raster::brick(varname = nldas_var, quick = TRUE) %>%
+        raster::extract(., cells, df = FALSE) %>% 
+        magrittr::set_colnames(nldas_var) %>%
+    as_tibble()
+}
+
+extract_single_file <- compiler::cmpfun(extract_single_file)
+
+
+
+ 
+
+
+
+
+
+# Execute map over files (Jan 1990-July 2019)
+
+
+
+ptm <- proc.time()
+
+for (i in seq_along(file_names)) {
+map2_dfc(.x = file_names[[i]], .y = nldas_variables, .f = extract_single_file) %>% 
+write_rds(., path = paste0(output_path,
+                           paste0(
+    file_names[[i]] %>%  stringr::str_extract("[1-2][0-9]{7}"),
+    "_",
+    file_names[[i]] %>% stringr::str_extract("\\.[0-2][0-9][0]{2}") %>% str_sub(start = 2L)),
+    ".rds"), 
+    compress = "none")
+}
+
+proc.time() - ptm
+
+
+#  user   system  elapsed 
+# 47201.04  8612.41 79413.64 
+
+79413.64/(60*60) # 22+ hours
+
+
+
+
+# July 2019 - Dec 2019
+
+nldas_path <- "D:/nldas_end2019/"
+
+extract_single_file <- function(ncdf_single_file, nldas_var) {  
+  hourly_df <-   
+  ncdf_single_file %>% 
+      file.path(nldas_path, .) %>% 
+        raster::brick(varname = nldas_var, quick = TRUE) %>%
+        raster::extract(., cells, df = FALSE) %>% 
+        magrittr::set_colnames(nldas_var) %>%
+    as_tibble()
+}
+
+
+file_list <- list.files(path = "D:/nldas_end2019", pattern = "^.*\\.(nc4|NC4|Nc4|Nc4)$",
+                        full.names = FALSE) %>% 
+  as_tibble() %>% 
+  mutate(date = value %>% 
+           stringr::str_extract("[1-2][0-9]{7}") %>% lubridate::ymd(),
+         hour = value %>% 
+           stringr::str_extract("[0-2][0-9][0]{2}") %>% as_factor(),
+         path = paste0("D:/nldas_end2019/", value)) %>% 
+  dplyr::select(value, path, date, hour) 
+
+file_names <-
+  file_list$value
+
+
+
+
+for (i in seq_along(file_names)) {
+map2_dfc(.x = file_names[[i]], .y = nldas_variables, .f = extract_single_file) %>% 
+write_rds(., path = paste0(output_path,
+                           paste0(
+    file_names[[i]] %>%  stringr::str_extract("[1-2][0-9]{7}"),
+    "_",
+    file_names[[i]] %>% stringr::str_extract("\\.[0-2][0-9][0]{2}") %>% str_sub(start = 2L)),
+    ".rds"), 
+    compress = "none")
+}
+
+
+
+
+
+
+
+
+ncdump::NetCDF("D:/nldas/NLDAS_FORA0125_H.A20090510.2000.002.grb.SUB.nc4")
+```
+
+
+## .rds objects to List
+
+
+# .rds object list
+
+```{r extract_variable_names}
+
+
+file_list <- list.files(path = "D:/nldas_knox", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>% 
+  as_tibble()
+
+
+nldas_list <- list.files(path = "D:/nldas_knox", pattern = "^.*\\.rds",
+                        full.names = TRUE) %>%  
+  lapply(., read_rds)
+
+
+#nldas_list <-
+ # list.files(path = "D:/nldas_pens_ports", pattern = ".rds") %>%
+  #map(read_rds)
+
+
+# Set date/time as list element name
+
+date_time_names <- 
+  paste0(
+      file_list$value %>%  stringr::str_sub(start = -17)
+  ) %>% 
+  str_sub(end = -5)
+        
+        
+        
+#date_time_names %>% as_tibble() %>% n_distinct()
+#date_time_names %>% as_tibble() %>% janitor::get_dupes(value)
+
+
+names(nldas_list) <- date_time_names
+
+# write_rds(nldas_list, path = "D:/output/nldas_list_knox.rds")
+
+
+
+
+```
+
+
+## Convert NLDAS from list to df
+
+```{r}
+
+nldas_list <-
+  read_rds("D:/output/nldas_list_pensa_ports.rds")
+
+knox_bases <- "fort_knox"
+
+
+# Extract by location from list and create an NLDAS object for each.
+
+knox_df <-
+  nldas_list %>% 
+    bind_rows(.id = "date_time") %>% 
+    mutate(installation = "fort_knox")
+
+ write_rds(knox_df, path = "D:/data/knox_df.rds")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r plot_raster_cells}
+
+centroid_knox <- knox_sfc$centroid %>%
+  as_tibble() %>% 
+  dplyr::mutate(site_name = knox_sfc$site_name) %>% 
+  st_as_sf()
+
+
+raster_cell <- 
+  xyFromCell(r, cell$cell_) %>%
+  as_tibble() %>% 
+  mutate(site_name = knox_sfc$site_name) %>% 
+  st_as_sf(coords = c("x", "y"))
+
+
+tm_shape(knox_sfc) +
+    tm_borders() +
+    tm_fill(col = "blue", alpha = 0.1) +
+tm_shape(centroid_knox) +
+  tm_dots() +
+tm_shape(raster_cell) +
+  tm_dots(col = "red") 
+
+```
+
+

@@ -1,0 +1,226 @@
+---
+title: "dlnm_fun"
+author: "SL"
+date: "10/19/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(survival)
+library(splines)
+library(broom)
+library(dlnm)
+library(plotly)
+library(weathermetrics)
+
+```
+
+## Load daily NLDAS indices and anomalies
+
+```{r}
+
+daily_indices <- read_rds(file = "D:/data/daily_indices.rds") %>% 
+  rename(date = `lubridate::date(local_dttm)`) %>% 
+  mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean))
+
+case_control_df <-
+  read_rds("data/case_control_df.rds")
+
+
+cc_exposure_df <-
+  read_rds(file = "D:/data/cc_exposure_df.rds") %>% 
+  mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean))
+
+
+# DLNM
+## Lags function
+
+lags <- seq(7) # Number of lags
+
+lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"), 
+  sep = "_")
+
+lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
+
+```
+
+
+```{r}
+## Cross-basis
+
+
+selected_index <- "wbgt_f_mean"
+
+dlnm_fun("wbgt_f_mean")
+
+
+dlnm_fun = function(selected_index) {
+
+  # inspect histogram
+  
+cc_exposure_df %>%
+    filter(case %in% 1) %>% 
+    ggplot(aes(x = wbgt_f_mean)) +
+      geom_histogram(binwidth = 1) +
+      theme_bw()
+    
+cc_exposure_df %>% summary()
+  
+  
+  
+  # create lag matrix
+
+lag_matrix <-
+   daily_indices %>% 
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+      dplyr::select(installation, date, selected_index) %>% 
+   group_by(installation) %>% 
+   mutate_at(vars(selected_index), funs_(lag_fun)
+  )
+
+
+
+# join lag matrix to case-crossover dataframe
+
+cc_lag_matrix <-
+  cc_exposure_df %>% 
+    filter(year %in% 1998:2019) %>% 
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
+
+
+cc_lag_only <- 
+  cc_lag_matrix %>% 
+  dplyr::select(selected_index, lag_1:lag_7)
+
+
+# Define dlnm cross-basis (penalized splines)
+
+index_cb <-
+    crossbasis(
+      cc_lag_only,    
+      lag = 7,    # of lags
+      argvar = list(fun = "ns", df = 5),    #  functional form of the dose-response curve
+      arglag = list(fun = "ns", df = 4))    #  functional form of the lags
+
+summary(index_cb)
+
+# run model and get prediction for selected_index
+
+
+index_dlnm <- survival::clogit(case ~ 
+                  index_cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "efron",
+                  data =  cc_exposure_df) 
+
+
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 90, cumul = TRUE)
+
+
+
+## Overall effect RRs
+
+pred_dlnm$allRRfit[c("78", "82", "85", "88", "90")]
+
+bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
+  dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
+  dplyr::filter(var %in% c("78", "82", "85", "88", "90"))
+
+
+
+
+# Plot cross-predictions
+
+# 3d Plot 
+
+plot(pred_dlnm, 
+     xlab = paste(selected_index), zlab = "\nRR", ylab = "\nLag", 
+     theta = 40, phi = 30, lphi = 30,
+     main = "1998-2019")
+
+
+# Contour plot
+
+plot(pred_dlnm, "contour",
+     plot.title = title(xlab = selected_index, ylab = "Lag",
+     main = "Contour graph \n1998-2019"), key.title = title("RR"))
+
+
+
+
+# Slice Plot
+# visualize association at specific lags 
+
+
+# Overall effect
+
+plot(pred_dlnm, "overall",
+     lwd = 4,
+     col = "darkred",
+     main = "Overall effect \n  1998-2019", 
+     xlab = paste(selected_index), 
+     ylab = "HSI Rate Ratio")
+
+
+
+
+# Plot dose-response curve at Lag 0
+
+plot(pred_dlnm, "slices",
+     var = 88,
+     type = "p",
+     ci = "bars",
+     main = "Lag specific effects at 88 deg \n  1998-2019", 
+     xlab = paste(selected_index), 
+     ylab = "HSI Rate Ratio")
+
+
+
+
+plot(pred_dlnm, "slices",
+     lag = 0,
+     #ylim = c(0, 10),
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 0 \n  1998-2019", 
+     xlab = paste(selected_index), 
+     ylab = "HSI Rate Ratio")
+
+
+plot(pred_dlnm, "slices",
+     lag = 1,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 1 \n  1998-2019", 
+     xlab = paste(selected_index), 
+     ylab = "HSI Rate Ratio")
+
+plot(pred_dlnm, "slices",
+     lag = 2,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 2 \n  1998-2019", 
+     xlab = paste(selected_index), 
+     ylab = "HSI Rate Ratio")
+
+
+
+
+
+}
+
+
+```
+
+
+
+
+
+
+

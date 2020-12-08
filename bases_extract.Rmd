@@ -385,15 +385,22 @@ nldas_hourly_df <-
     bind_rows(nldas_df2) %>% 
     bind_rows(nldas_df3)
 
-# write_rds(nldas_hourly_df, file = "D:/data/nldas_hourly_df.rds")
+
+
+
+# Add on Fort Knox df
 
 nldas_hourly_df <-
-  read_rds(file = "D:/data/nldas_hourly_df.rds")
+  read_rds(file = "D:/data/nldas_hourly_df.rds") %>% 
+    bind_rows(knox_df)
+
+# write_rds(nldas_hourly_df, file = "D:/data/nldas_hourly_df.rds")
 
 centroid_coords <-
-  read_rds(file = "D:/data/centroid_coords.rds")
+  read_rds(file = "D:/data/centroid_coords.rds") %>% 
+  bind_rows(knox_sfc)
 
-
+write_rds(centroid_coords, file = "D:/data/centroid_coords.rds")
 ```
 
 

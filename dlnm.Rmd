@@ -60,6 +60,7 @@ case_control_df %>%
   count(dmisid)
 
 
+
 dmisid_distinct <-    
   read_rds(file = "data/dmisid_distinct.Rds")
 
@@ -115,11 +116,12 @@ case_control_df <-
 
 cc_exposure_df <-
   case_control_df %>% 
-    left_join(daily_nldas,  by = c("installation_name" = "installation", "d_event" = "date")) %>% 
+    left_join(daily_indices,  by = c("installation_name" = "installation", "d_event" = "date")) %>% 
     filter(year %in% 1998:2019) %>% 
     mutate(stratum = as_factor(paste(studyid, d_event, sep = "_")))
 
 #write_rds(cc_exposure_df, file = "D:/data/cc_exposure_df.rds")
+
 
 cc_exposure_df <-
   read_rds(file = "D:/data/cc_exposure_df.rds")
@@ -178,25 +180,25 @@ cc_exposure_df %>%
 
 # create strata column (studyid + d_event)
 
-cc_exposure_df <-
-  cc_exposure_df %>% 
-    mutate(strata = as_factor(paste(studyid, d_event, sep = "_"))
-)
+#cc_exposure_df <-
+#  cc_exposure_df %>% 
+#    mutate(stratum = as_factor(paste(studyid, d_event, sep = "_"))
+# )
 
 
 cc_exposure_df %>% 
-  group_by(strata) %>% 
+  group_by(stratum) %>% 
   count(case)
 
 clm_basic <- 
-   survival::clogit(case ~ tmp_f_max95 +  
-                   strata(strata), 
+   survival::clogit(case ~ wbgt_u_mean +  
+                   strata(stratum), 
                    method = "efron", 
                    cc_exposure_df) 
 
 
 summary(clm_basic)
-
+plot(clm_basic)
 
 # broom::tidy(clm_basic)
 # broom::glance(clm_basic)
@@ -206,7 +208,7 @@ clm_augment <-
 
 
 clm_augment %>% 
-  ggplot(aes(x = tmp_f_max95, y = .fitted)) + 
+  ggplot(aes(x = wbgt_u_mean, y = .fitted)) + 
   geom_smooth(size = 1.5) + # method = 'gam' and formula 'y ~ s(x, bs = "cs")'
   geom_point(alpha = 0.05, size = 0.5) +
   theme_bw() +

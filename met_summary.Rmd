@@ -26,6 +26,9 @@ hourly_nldas <-
 hourly_nldas %>% 
   summary(status)
 
+hourly_nldas %>% 
+  count(installation) %>% View()
+
 ```
 
 
@@ -37,14 +40,18 @@ hourly_nldas %>%
 
 daily_indices <-
   hourly_nldas  %>%
-    drop_na %>%
-    dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt_u) %>% 
-    group_by(installation, lubridate::date(local_dttm)) %>%
-    dplyr::summarise_at(
-          .vars = vars(tmp_f, heat_index, wbgt_u),
-          .funs = c(mean = "mean", max = "max", min = "min", "max95" = ~quantile(., probs = 0.95)))
+      drop_na %>%
+      dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt_u) %>% 
+      group_by(installation, lubridate::date(local_dttm)) %>%
+      dplyr::summarise_at(
+            .vars = vars(tmp_f, heat_index, wbgt_u),
+            .funs = c(mean = "mean", max = "max", min = "min", "max95" = ~quantile(., probs = 0.95)))
 
 #write_rds(daily_indices, file = "D:/data/daily_indices.rds")
+
+daily_indices %>% 
+  count(installation) %>% View()
+
 
 
 month_yr_indices <-

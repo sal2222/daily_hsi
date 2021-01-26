@@ -37,6 +37,17 @@ cc_exposure_df <-
   mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean))
 
 
+
+daily_indices %>% 
+  count(installation) %>% View()
+
+
+case_control_df %>% 
+  count(installation_name) %>% View()
+
+cc_exposure_df %>% 
+  count(installation_name) %>% View()
+
 # DLNM
 ## Lags function
 

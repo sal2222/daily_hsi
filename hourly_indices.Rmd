@@ -13,8 +13,8 @@ library(lutz)
 library(weathermetrics)
 library(devtools)
 library(wbgt) #devtools::install_github("mdljts/wbgt")
-
-
+library(sf) 
+library(lubridate)
 
 ```
 
@@ -28,13 +28,17 @@ nldas_hourly_df <-
 centroid_coords <-
   read_rds(file = "D:/data/centroid_coords.rds")
 
+centroid_coords <-
+  read_rds(file = "C:/Users/slewa/OneDrive - cumc.columbia.edu/PhD Files/data/centroid_coords.rds")
+
+#  write_rds(centroid_coords, file = "C:/Users/slewa/OneDrive - cumc.columbia.edu/PhD Files/data/centroid_coords.rds")
 
 nldas_hourly_df %>% 
-  count(installation) 
+  count(installation) %>% View()
 
 
 centroid_coords %>% 
-  count(site_name) 
+  count(site_name) %>%  View()
 ```
 
 
@@ -102,8 +106,6 @@ hourly_indices <-
                            round = 2))  
 
 
-write_rds(hourly_indices, file = "D:/data/hourly_indices.rds")
-
 
 
 ```
@@ -153,6 +155,10 @@ hourly_indices <-
   dplyr::select(utc_dttm, local_dttm, installation, longitude, latitude, everything())
 
 hourly_indices 
+
+# write_rds(hourly_indices, file = "D:/data/hourly_indices.rds")
+
+# write_rds(hourly_indices, file = "C:/Users/slewa/OneDrive - cumc.columbia.edu/PhD Files/data/hourly_indices.rds")
 
 # Create dataframe for `wbgt_df` function
 

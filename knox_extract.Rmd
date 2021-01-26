@@ -309,6 +309,8 @@ knox_df <-
 
  write_rds(knox_df, path = "D:/data/knox_df.rds")
 
+knox_df <- 
+  read_rds("D:/data/knox_df.rds")
 
 
 ```

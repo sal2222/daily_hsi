@@ -396,6 +396,16 @@ nldas_hourly_df <-
 
 # write_rds(nldas_hourly_df, file = "D:/data/nldas_hourly_df.rds")
 
+# write_rds(nldas_hourly_df, file = "C:/Users/slewa/OneDrive - cumc.columbia.edu/PhD Files/data/nldas_hourly_df.rds")
+
+
+nldas_hourly_df <-
+  read_rds("D:/data/nldas_hourly_df.rds")
+
+
+nldas_hourly_df %>% 
+  count(installation) %>% View()
+
 centroid_coords <-
   read_rds(file = "D:/data/centroid_coords.rds") %>% 
   bind_rows(knox_sfc)

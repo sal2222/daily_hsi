@@ -27,7 +27,13 @@ library(viridis)
 
 daily_indices <- read_rds(file = "D:/data/daily_indices.rds") %>% 
   rename(date = `lubridate::date(local_dttm)`) %>% 
-  mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean))
+  mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean),
+         installation = recode(installation, 
+                `pensacola_nas` = "pensacola",
+                `portsmouth_nmc` = "portsmouth"))
+
+
+
 
 case_control_df <-
   read_rds("data/case_control_df.rds")
@@ -40,7 +46,7 @@ cc_exposure_df <-
 
 
 daily_indices %>% 
-  count(installation) %>% View() #30 installations
+  count(installation) %>% View() #30 installation
 
 
 case_control_df %>% 

@@ -17,6 +17,7 @@ library(broom)
 library(dlnm)
 library(plotly)
 library(weathermetrics)
+library(viridis)
 
 ```
 
@@ -39,14 +40,14 @@ cc_exposure_df <-
 
 
 daily_indices %>% 
-  count(installation) %>% View()
+  count(installation) %>% View() #30 installations
 
 
 case_control_df %>% 
-  count(installation_name) %>% View()
+  count(installation_name) %>% View() #24 installations
 
 cc_exposure_df %>% 
-  count(installation_name) %>% View()
+  count(installation_name) %>% View() #24 installations
 
 # DLNM
 ## Lags function
@@ -133,7 +134,7 @@ index_dlnm <- survival::clogit(case ~
 
 pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 90, cumul = TRUE)
 
-
+summary(pred_dlnm)
 
 ## Overall effect RRs
 
@@ -221,7 +222,13 @@ plot(pred_dlnm, "slices",
      ylab = "HSI Rate Ratio")
 
 
-
+plot(pred_dlnm, "slices",
+     lag = 3,
+     lwd = 4,
+     col = "darkred",
+     main = "Exposure-Response at Lag 3 \n  1998-2019", 
+     xlab = paste(selected_index), 
+     ylab = "HSI Rate Ratio")
 
 
 }
@@ -231,7 +238,198 @@ plot(pred_dlnm, "slices",
 
 
 
+ggplot figures
+```{r}
+
+lag_matrix
+
+cc_lag_matrix
+
+cc_lag_only
+
+index_cb
+
+index_dlnm <- survival::clogit(case ~ 
+                  index_cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "efron",
+                  data =  cc_exposure_df) 
 
 
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 90, cumul = TRUE)
+
+
+plot(pred_dlnm, "overall",
+     lwd = 4,
+     col = "darkred",
+     main = "Overall effect \n  1998-2019", 
+     xlab = paste(selected_index), 
+     ylab = "HSI Rate Ratio")
+
+
+
+# As ggplot
+  # https://www.rdocumentation.org/packages/season/versions/0.3.8/vignettes/season-vignette.Rmd link assisted with example "Plot of the temperature and death association averaging over all lags"
+
+ 
+to_plot <- 
+  data.frame(index = pred_dlnm$predvar, 
+             mean = pred_dlnm$allRRfit,
+             lower = pred_dlnm$allRRlow,
+             upper = pred_dlnm$allRRhigh)
+  
+
+ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
+  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+  geom_ribbon(alpha = 0.2) +
+  geom_line(size = 1.25) +
+  xlab('WBGT (degrees F)') +
+  ylab('Odds Ratio') +
+  xlim(50, NA) +
+  theme_bw() +
+  ggtitle("Daily mean WBGT and HSI association averaged over all lags") +
+  labs(caption = "Centered at 50°F") +
+  theme(plot.caption = element_text(hjust = 0)) 
+  
+
+```
+
+
+## Groups
+
+### By installation
+
+```{r}
+
+summary(cc_lag_matrix) 
+
+# Density plots
+
+cc_lag_matrix %>% 
+  ggplot(aes(x = wbgt_f_mean)) +
+  geom_density(fill = "purple4", alpha = 0.5) + 
+      geom_rug(sides = "b") +
+      theme_bw() +
+      ggtitle("Density plot of mean daily WBGT from 1998-2019") 
+
+cc_lag_matrix %>% 
+  count(installation_name)
+
+cc_lag_matrix %>% 
+  summary(.$wbgt_f_mean)
+
+
+cc_lag_matrix %>% 
+  ggplot(aes(x = wbgt_f_mean, fill = installation_name)) +
+  geom_density(alpha = .5) + 
+  #facet_grid(~name) + 
+  viridis::scale_fill_viridis(discrete = TRUE) +
+      theme_bw() +
+      ggtitle("Density plot of mean daily WBGT from 1998-2019") 
+
+
+cc_lag_matrix %>% count(d_event) %>% View()
+
+
+cc_lag_nest <-
+  cc_lag_matrix %>% 
+    select(-bmi, -control_date) %>%
+    drop_na(selected_index) %>% 
+    nest(., data = studyid:lag_7) 
+
+cc_lag_nest$data[1] 
+
+dlnm_map_fun = function(df) {
+
+  cc_lag_only <- 
+    df %>% 
+    dplyr::select(selected_index, lag_1:lag_7)
+      
+  index_cb <-
+      crossbasis(
+        cc_lag_only,    
+        lag = 7,    # of lags
+        argvar = list(fun = "ns", df = 5),    #  functional form of the dose-response curve
+        arglag = list(fun = "ns", df = 4))    #  functional form of the lags
+   
+  index_dlnm <- survival::clogit(case ~ 
+                    index_cb +  # lagged, nonlinear term for exposure
+                    strata(stratum), 
+                    method = "efron",
+                    data =  df) 
+  
+  
+  return(crosspred(index_cb, index_dlnm, 
+                   by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)
+  )
+
+}
+
+
+  
+base_dlnm_nest <-  
+  cc_lag_nest %>%
+    mutate(pred_dlnm = 
+             map(cc_lag_nest$data, dlnm_map_fun)
+           )
+
+base_dlnm_nest      
+
+
+# Add column for ggplot
+
+base_dlnm_nest <-
+  base_dlnm_nest %>% 
+    mutate(to_plot =
+            map(.x = pred_dlnm, 
+                .f = ~data.frame(index = .$predvar, 
+              mean = .$allRRfit,
+              lower = .$allRRlow,
+              upper = .$allRRhigh))
+)
+
+
+base_dlnm_nest
+base_dlnm_nest$to_plot[[1]]
+
+
+base_dlnm_nest %>% 
+  unnest(to_plot) %>% 
+    ggplot(data = ., aes(x = index, y = mean, 
+                         ymin = lower, ymax = upper,
+                         color = installation_name, linetype = installation_name)) +
+      geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+      geom_ribbon(alpha = 0.05) +
+      geom_line(size = 0.8) +
+      xlab('WBGT (degrees F)') +
+      ylab('Odds Ratio') +
+      xlim(70, NA) +
+      theme_bw() +
+      ggtitle("Daily mean WBGT and HSI association averaged over all lags") +
+      labs(caption = "Centered at 50°F") +
+      theme(plot.caption = element_text(hjust = 0))
+
+base_dlnm_nest %>% 
+  unnest(to_plot) %>%
+    ggplot(data = ., aes(x = index, y = mean, 
+                         ymin = lower, ymax = upper,
+                         color = installation_name, linetype = installation_name)) +
+      geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+      geom_line(size = 0.8) +
+      xlab('WBGT (degrees F)') +
+      ylab('Odds Ratio') +
+      xlim(50, NA) +
+      ylim(0, 100) +
+      theme_bw() +
+      ggtitle("Daily mean WBGT and HSI association averaged over all lags") +
+      labs(caption = "Centered at 50°F") +
+      theme(plot.caption = element_text(hjust = 0)) 
+
+      #scale_color_viridis(discrete = TRUE, option = "magma")
+    
+
+
+
+```
 
 

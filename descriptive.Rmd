@@ -1,7 +1,9 @@
 ---
 title: "descriptive"
-output: html_document
-editor_options: 
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
   chunk_output_type: console
 ---
 
@@ -17,16 +19,397 @@ library(plotly)
 library(lubridate)
 library(corrplot)
 library(table1)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(rgeos)
+library(lwgeom)
+library(cowplot)
+library(tmap)
+library(raster)
+library(sf)
+library(maps)
+library(ggspatial)
+library(ggrepel)
+
+```
+
+
+```{r}
+
+daily_indices <- read_rds(file = "data/daily_indices.rds")
+
+
+# daily_indices <- read_rds(file = "E:/data/daily_indices.rds") %>% 
+#   rename(date = `lubridate::date(local_dttm)`) %>% 
+#   mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean),
+#          installation = recode(installation, 
+#                 `pensacola_nas` = "pensacola",
+#                 `portsmouth_nmc` = "portsmouth"))
+
+# write_rds(daily_indices, file = "data/daily_indices.rds")
+
+
+cc_exposure_df <-
+  read_rds(file = "data/cc_exposure_df.rds")
+
+# cc_exposure_df <-
+#   read_rds(file = "E:/data/cc_exposure_df.rds") %>% 
+#   mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean))
+
+
+cc_exposure_df %>% 
+  count(cc_exposure_df) %>% View() #24 installations
+
+
+cc_exposure_df <-
+  cc_exposure_df %>% 
+     mutate(installation_name = as_factor(installation_name),
+       installation_name = recode(installation_name,
+        "mcb_camp_lejeune" = "camp_lejeune",
+        "mcb_camp_pendleton" = "camp_pendleton",
+        "fort_benning_ga" = "fort_benning",
+        "fort_sam_houston" = "jbsa",
+        "mcrd_beaufort_parris_island" = "parris_island",
+        "mcb_quantico" = "quantico",
+        "twentynine_palms_main_base" = "twentynine_palms")) 
+
+
+# write_rds(cc_exposure_df, file = "data/cc_exposure_df.rds")
+# write_rds(daily_indices, file = "data/daily_indices.rds")
 
 ```
 
 
 
+
+
+### Counts by service - installation
+```{r}
+
+base_service_counts <-
+  cc_exposure_df %>% 
+    count(installation_name, service) %>% 
+    spread(service, n, fill = 0) 
+
+
+# rank case occurrence by service for each installation; filter top
+
+base_service_rank <-
+  cc_exposure_df %>% 
+    count(installation_name, service) %>% 
+    group_by(installation_name) %>% 
+    mutate(rank = rank(-n)) %>% 
+    filter(rank == 1)
+
+base_service_df <-
+  base_service_counts %>% 
+    right_join(base_service_rank %>% 
+                 dplyr::select(installation_name, service), by = "installation_name") 
+
+
+base_service_df %>% 
+  count(service)
+
+```
+
+### Geographic / climate region
+
+https://www.ncdc.noaa.gov/monitoring-references/maps/us-climate-regions.php
+
+Through climate analysis, National Centers for Environmental Information scientists have identified nine climatically consistent regions within the contiguous United States which are useful for putting current climate anomalies into a historical perspective (Karl and Koss, 1984).
+
+
+
+```{r}
+
+base_service_df$installation_name
+
+# Assign U.S. Climate regions
+
+## 1st column
+installation_name <- base_service_df$installation_name 
+## 2nd column
+region <- c("Southeast", "Southeast", "Southeast", "Southeast", "Ohio Valley", "South", 
+            "Southeast", "West", "South", "West", "Southeast", "South",
+            "Southeast", "West", "South", "Ohio Valley", "South", "West",
+            "Ohio Valley", "South", "Southeast", "Southeast", "Southeast", "Southeast"
+            )
+
+climate_regions <- data.frame(installation_name, region) %>% 
+  as_tibble()
+  
+
+base_service_df <- 
+  base_service_df %>% 
+    right_join(climate_regions, by = "installation_name") 
+
+
+base_service_df <-
+  base_service_df %>% 
+    mutate(service = recode(service,
+          "A" = "Army",
+          "C" = "Coast Guard",
+          "F" = "Air Force",
+          "M" = "Marine Corps",
+          "N" = "Navy"))
+
+
+#write_rds(base_service_df, file = "data/base_service_df.rds")
+  
+
+
+base_service_df %>% 
+  ggplot(aes(region)) +
+    geom_bar() +
+    theme_bw()
+
+
+base_service_df %>% 
+  ggplot(aes(region, fill = service)) +
+    geom_bar(position = position_dodge()) +
+    theme_bw()
+
+
+# Cross-tab service and region
+base_service_df %>% 
+  group_by(service, region) %>% 
+  summarise(n = n()) %>% 
+  spread(region, n)
+
+base_service_df %>% 
+  group_by(service, region) %>% 
+  summarise(n = n()) %>% 
+  spread(region, n) %>% 
+  knitr::kable()
+```
+
+
+## Outcome table
+```{r}
+
+to_table1 <-
+  cc_exposure_df %>% 
+    filter(case == 1) %>% 
+    dplyr::select(installation_name, source, age, sex, race_ethnic, service, grade, hsi) %>% 
+       mutate(service = recode(service,
+            "A" = "Army",
+            "C" = "Coast Guard",
+            "F" = "Air Force",
+            "M" = "Marine Corps",
+            "N" = "Navy"),
+            source = recode(source,
+            "INPATIENT" = "In-Patient",
+            "OUTPATIENT" = "Out-Patient",
+            "RME" = "Reportable Event"),
+            hsi = recode(hsi,
+            "heat_exhaustion" = "Heat Exhaustion",
+            "heat_stroke" = "Heat Stroke"),
+            sex = recode(sex,
+            "F" = "Female",
+            "M" = "Male",
+            "Z" = "Unknown")
+            ) %>% 
+  left_join(climate_regions, by = "installation_name") %>% 
+  mutate_if(is.character, as.factor) %>% 
+            mutate(age = fct_relevel(age, ">=40", after = Inf))
+
+
+label(to_table1$hsi) <- "HSI Diagnosis"
+label(to_table1$age) <- "Age Group"
+label(to_table1$sex) <- "Sex"
+label(to_table1$race_ethnic) <- "Race/Ethnicity"
+label(to_table1$grade) <- "Grade Group"
+label(to_table1$service) <- "Service Branch"
+label(to_table1$region) <- "NOAA NCEI Climate Region"
+
+
+table1::table1(~ hsi + sex + age + sex + grade + race_ethnic  | source, data = to_table1)
+table1::table1(~ hsi + sex + age + sex + grade   | source, data = to_table1)  
+table1::table1(~ service + region + race_ethnic | source, data = to_table1)
+
+table1::table1(~ factor(hsi) + factor(age) + factor(sex) + 
+               factor(race_ethnic) + factor(grade) | factor(source), data = to_table1)
+  
+
+```
+
+
+## Exposures
+
+```{r}
+
+#Density plot, all case days 1998-2018
+
+to_density_plot <-
+  cc_exposure_df %>%
+    filter(case == 1) %>% 
+    dplyr::select(installation_name, d_event, wbgt_mean, wbgt_max) %>% 
+    mutate("Mean WBGT" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+           "Max WBGT" = weathermetrics::celsius.to.fahrenheit(wbgt_max)) %>% 
+    dplyr::select(installation_name, `Mean WBGT`, `Max WBGT`) %>% 
+    pivot_longer(-installation_name, names_to = "Index", values_to = "Value")
+  
+#check for missing values
+  to_density_plot[!complete.cases(to_density_plot),] %>% View()
+  
+  
+to_density_plot %>%   
+  ggplot(aes(x = Value, fill = Index, colour = Index)) +
+      geom_density(alpha = 0.5) +
+      geom_rug() +
+      theme_bw() +
+  labs(title = "Density plot of daily indices on all case days, 1998-2019",
+       x = "Daily Index Value (°F)")
+
+
+
+## Day of year
+
+cc_exposure_df %>%
+  filter(case == 1) %>% 
+  dplyr::select(installation_name, date) %>% 
+  mutate(`Day of Year` = lubridate::yday(date)) %>% 
+  ggplot(aes(x = `Day of Year`)) +
+  geom_density(colour = "cadetblue", fill = "cadetblue", alpha = 0.5) +
+  theme_bw() +
+  labs(title = "Day of year for HSI case days, 1998-2019")
+    
+
+cc_exposure_df %>%
+  filter(case == 1) %>% 
+  dplyr::select(installation_name, date) %>% 
+  mutate(`Day of Year` = lubridate::yday(date)) %>% 
+  ggplot(aes(x = `Day of Year`)) +
+  geom_bar(colour = "cadetblue", fill = "cadetblue", alpha = 0.5) +
+  theme_bw() +
+  labs(title = "Day of year for HSI case days, 1998-2019")
+
+```
+
+
+
+
+
+## Map
+
+```{r}
+
+centroid_coords <-
+  read_rds("E:/data/centroid_coords.rds")
+
+
+centroid_coords$site_name 
+centroid_coords$geometry 
+
+# convert Installation names from snake-case to "title"
+base_service_df <-
+  base_service_df %>%
+    mutate(installation_name = str_replace_all(installation_name, "_", " "),
+      installation_name = str_to_title(installation_name, locale = "en"))
+
+base_service_df$installation_name
+
+
+# Change `centroid_coords` site names to match
+
+centroid_coords <-
+  centroid_coords %>% 
+    mutate(site_name = recode(site_name,
+                              "Fort Benning GA" = "Fort Benning",
+                              "NAS Pensacola" = "Pensacola",
+                              "Naval Medical Center Portsmouth" = "Portsmouth",
+                              "MCB Quantico" = "Quantico",
+                              "MCRD San Diego" = "Mcrd San Diego",
+                              "NTC and Fort Irwin" = "Ntc And Fort Irwin",
+                              "Twentynine Palms Main Base" = "Twentynine Palms",
+                              "MCB Camp Lejeune" = "Camp Lejeune",
+                              "Eglin AFB" = "Eglin Afb",
+                              "Fort Sam Houston" = "Jbsa",
+                              "MCRD Beaufort Parris Island" = "Parris Island",
+                              "MCB Camp Pendleton" = "Camp Pendleton"))
+
+
+mapping_df <-
+  base_service_df %>% 
+    left_join(centroid_coords, by = c("installation_name" = "site_name"))
+
+#write_rds(mapping_df, file = "data/mapping_df.rds")
+                              
+
+
+mapping_df                              
+
+```
+
+
+```{r}
+
+point_coords <-
+  st_coordinates(mapping_df$centroid) %>% 
+    as_tibble() %>% 
+    rename("longitude" = "X",
+           "latitude" = "Y")
+
+
+mapping_df <-
+  mapping_df %>% bind_cols(
+    point_coords)
+
+
+
+sites <- data.frame(names = mapping_df$installation_name,
+                    longitude = mapping_df$longitude,
+                    latitude = mapping_df$latitude,
+                    region = mapping_df$region,
+                    service = mapping_df$service)
+
+
+sites <- st_as_sf(sites, coords = c("longitude", "latitude"), remove = FALSE, 
+    crs = 4326, agr = "constant")
+
+
+
+#world map
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+usa <- ne_countries(country = 'united states of america', scale = "medium", returnclass = "sf")
+usa
+
+states <- st_as_sf(map("state", plot = FALSE, fill = TRUE))
+states
+
+
+
+
+ggplot(data = usa) +
+    geom_sf() +
+    geom_sf(data = states, fill = "cornsilk") + 
+    geom_point(data = sites, aes(x = longitude, y = latitude, fill = service), size = 4, 
+        shape = 23) +
+    geom_sf(data = sites) +
+    geom_text_repel(data = sites, aes(x = longitude, y = latitude, label = names), fontface = "bold", size = 3, 
+        nudge_x = 3, nudge_y = -2) +
+    coord_sf(xlim = c(-130, -65), ylim = c(24.5, 50), expand = FALSE) +
+    ggtitle("Study Installations", subtitle = "(n=24)") +
+    theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
+        size = 0.5), panel.background = element_rect(fill = "azure2"))
+
+ggsave("output/study_map.png")
+
+```
+
+
+
+
+
+#####################################################################
+
+## Earlier descriptive review
 Read in daily NLDAS
 
 ```{r}
 
-daily_nldas <- read_rds(file = "D:/data/daily_nldas.rds")
+daily_nldas <- read_rds(file = "E:/data/daily_nldas.rds")
 
 ```
 
@@ -35,10 +418,11 @@ daily_nldas <- read_rds(file = "D:/data/daily_nldas.rds")
 
 ```{r}
 
+
 # Outcomes 
 
 cc_exposure_df <-
-  read_rds(file = "D:/cc_exposure_df.rds")
+  read_rds(file = "E:/data/cc_exposure_df.rds")
 
 table1::table1(~ factor(source) + factor(hsi) + factor(service) | case, data = cc_exposure_df)
 
@@ -59,9 +443,6 @@ table1::table1(~ factor(sex) + factor(age) + factor(grade) + bmi | case, data = 
 
 
 ```
-
-
-
 
 
 Compare WBGT to Temp and Heat Index 

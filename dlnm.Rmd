@@ -20,6 +20,10 @@ library(plotly)
 
 ```
 
+
+Inputs: `daily_indices`, 'case_control_df`
+Output: `cc_exposure_df`
+
 ## Load daily NLDAS indices and anomalies
 
 ```{r}
@@ -56,7 +60,7 @@ case_control_df %>% count(installation_name) %>% View()
 # inspect Portsmouth DMISIDs (there is also a Navy Portsmouth shipyard in New Hampshire)
 
 case_control_df %>% 
-  filter(installation_name %in% "PORTSMOUTH") %>% 
+  filter(installation_name %in% "portsmouth") %>% 
   count(dmisid)
 
 
@@ -120,8 +124,8 @@ cc_exposure_df <-
     filter(year %in% 1998:2019) %>% 
     mutate(stratum = as_factor(paste(studyid, d_event, sep = "_")))
 
-#write_rds(cc_exposure_df, file = "D:/data/cc_exposure_df.rds")
-
+#write_rds(cc_exposure_df, file = "E:/data/cc_exposure_df.rds")
+#write_rds(cc_exposure_df, file = "data/cc_exposure_df.rds")
 
 cc_exposure_df <-
   read_rds(file = "D:/data/cc_exposure_df.rds")

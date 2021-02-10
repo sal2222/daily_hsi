@@ -255,6 +255,9 @@ hourly_nldas <-
 
 write_rds(hourly_nldas, file = "D:/data/hourly_nldas.rds")
 
+
+#hourly_nldas <-
+ # read_rds("E:/data/hourly_nldas.rds")
 ```
 
 
@@ -262,11 +265,13 @@ write_rds(hourly_nldas, file = "D:/data/hourly_nldas.rds")
 Check correlations with temperature
 ```{r}
 
-hourly_nldas  %>% 
-  filter(lubridate::year(local_dttm) %in% 1998:2019) %>% 
-  dplyr::select(tmp_f, heat_index, wbgt, wbgt_u) %>% 
-  cor()
+index_corr <-
+  hourly_nldas  %>% 
+    filter(lubridate::year(local_dttm) %in% 1998:2019) %>% 
+    dplyr::select(tmp_f, heat_index, wbgt, wbgt_u) %>% 
+    cor()
 
+# write_rds(index_corr, file = "output/index_corr.rds")
 
 hourly_nldas  %>% 
   filter(lubridate::year(local_dttm) %in% 1998:2019) %>% 

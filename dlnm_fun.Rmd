@@ -32,7 +32,16 @@ daily_indices <- read_rds(file = "D:/data/daily_indices.rds") %>%
                 `pensacola_nas` = "pensacola",
                 `portsmouth_nmc` = "portsmouth"))
 
+daily_indices <-
+  daily_indices %>% 
+       mutate(installation = recode(installation, 
+                  `pensacola_nas` = "pensacola",
+                  `portsmouth_nmc` = "portsmouth"))
 
+
+
+daily_indices %>% 
+    filter(installation %in% "pensacola")
 
 
 case_control_df <-
@@ -42,7 +51,6 @@ case_control_df <-
 cc_exposure_df <-
   read_rds(file = "D:/data/cc_exposure_df.rds") %>% 
   mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean))
-
 
 
 daily_indices %>% 
@@ -144,7 +152,7 @@ summary(pred_dlnm)
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("78", "82", "85", "88", "90")]
+pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
@@ -249,7 +257,8 @@ ggplot figures
 
 lag_matrix
 
-cc_lag_matrix
+cc_lag_matrix %>% 
+  count(installation_name) %>% View()
 
 cc_lag_only
 
@@ -285,6 +294,8 @@ to_plot <-
              upper = pred_dlnm$allRRhigh)
   
 
+
+
 ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.2) +
@@ -305,24 +316,24 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
 
 ### By installation
 
-```{r}
+```{r density_plots}
 
 summary(cc_lag_matrix) 
 
 # Density plots
-
+## Cases and Controls
 cc_lag_matrix %>% 
   ggplot(aes(x = wbgt_f_mean)) +
   geom_density(fill = "purple4", alpha = 0.5) + 
       geom_rug(sides = "b") +
       theme_bw() +
-      ggtitle("Density plot of mean daily WBGT from 1998-2019") 
+      ggtitle("Density plot of mean daily WBGT from 1998-2019\n Case- and control-days") 
 
 cc_lag_matrix %>% 
   count(installation_name)
 
-cc_lag_matrix %>% 
-  summary(.$wbgt_f_mean)
+summary(cc_lag_matrix)
+
 
 
 cc_lag_matrix %>% 
@@ -334,7 +345,56 @@ cc_lag_matrix %>%
       ggtitle("Density plot of mean daily WBGT from 1998-2019") 
 
 
-cc_lag_matrix %>% count(d_event) %>% View()
+## Daily temperature indices - all days (filter 1998-2019)
+
+daily_indices %>%
+  filter(lubridate::year(date) >= 1998) %>% 
+  ggplot(aes(x = wbgt_f_mean)) +
+  geom_density(fill = "purple4", alpha = 0.5) + 
+      geom_rug(sides = "b") +
+      theme_bw() +
+      ggtitle("Density plot of mean daily WBGT from 1998-2019\n All days") 
+  
+
+
+## Plot case days and all days together
+
+cc_lag_matrix %>% 
+  filter(case == 1) %>% 
+  select(installation_name, d_event, wbgt_f_mean) %>%
+  mutate(date_type = "case day") %>% 
+  bind_rows(
+    daily_indices %>%
+      filter(lubridate::year(date) >= 1998) %>%
+        select(installation, date, wbgt_f_mean) %>% 
+        rename(installation_name = installation,
+             d_event = date) %>% 
+      mutate(date_type = "calendar day")
+  ) %>% 
+  ggplot(aes(x = wbgt_f_mean, fill = date_type)) +
+  geom_density(alpha = 0.5) + 
+      geom_rug(sides = "b") +
+      theme_bw() +
+      ggtitle("Density plot of mean daily WBGT from 1998-2019") 
+    
+ 
+# case vs. control   
+cc_lag_matrix %>% 
+  select(installation_name, d_event, wbgt_f_mean, case) %>%
+  mutate(case = as_factor(case)) %>% 
+  ggplot(aes(x = wbgt_f_mean, fill = case)) +
+  geom_density(alpha = 0.5) + 
+      geom_rug(sides = "b") +
+      theme_bw() +
+      ggtitle("Density plot of mean daily WBGT from 1998-2019") 
+  
+
+
+```
+
+
+## Group Nest
+```{r group_nest}
 
 
 cc_lag_nest <-
@@ -432,10 +492,5 @@ base_dlnm_nest %>%
       theme(plot.caption = element_text(hjust = 0)) 
 
       #scale_color_viridis(discrete = TRUE, option = "magma")
-    
-
-
-
 ```
-
 

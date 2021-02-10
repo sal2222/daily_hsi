@@ -1,0 +1,546 @@
+---
+title: "wbgt_max"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(plotly)
+library(lattice)
+#remotes::install_github("tylermorganwall/rayshader")
+library(rayshader)
+library(dlnm)
+library(survival)
+library(splines)
+library(broom)
+library(plotly)
+library(weathermetrics)
+library(viridis)
+library(reshape2)
+library(magick)
+library(av)
+
+```
+
+
+```{r}
+
+cc_exposure_df <-
+  read_rds(file = "data/cc_exposure_df.rds") 
+
+cc_exposure_df <-
+  cc_exposure_df %>% 
+    mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max))
+
+base_service_df <-
+   read_rds(file = "data/base_service_df.rds") 
+
+# Add installation branch of service and climate region
+
+cc_exposure_df <-
+  cc_exposure_df %>% 
+    left_join(base_service_df %>%
+                rename(base_service = service) %>% 
+                dplyr::select(installation_name, base_service, region), by = "installation_name") 
+
+
+
+daily_indices <- 
+  read_rds(file = "data/daily_indices.rds") %>% 
+    filter(!installation %in% c("fort_drum", "fort_huachuca", "fort_lewis",
+                                "lackland_afb", "fort_carson", "west_point_mil_reservation")) %>% 
+    mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max),
+            installation = recode(installation,
+              "mcb_camp_lejeune" = "camp_lejeune",
+              "mcb_camp_pendleton" = "camp_pendleton",
+              "fort_benning_ga" = "fort_benning",
+              "fort_sam_houston" = "jbsa",
+              "mcrd_beaufort_parris_island" = "parris_island",
+              "mcb_quantico" = "quantico",
+              "twentynine_palms_main_base" = "twentynine_palms")) 
+     
+
+
+daily_indices %>% 
+  count(installation) %>% View()
+
+cc_exposure_df %>% 
+  count(installation_name) %>% View()
+
+```
+
+
+# cases at >92 deg F
+```{r}
+
+cc_exposure_df %>% 
+  filter(wbgt_max >= 92)
+
+# 6,061 cases out of 139,875 gt or equal to 92 max WBGT (~4.3% of cases at or beyond peak)
+6061/139875
+
+```
+
+
+
+
+```{r}
+
+# DLNM
+## Lags function
+
+lags <- seq(5) # Number of lags
+
+lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"), 
+  sep = "_")
+
+lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
+
+```
+
+
+
+```{r}
+
+selected_index <- "wbgt_max"
+
+
+  # create lag matrix
+
+lag_matrix <-
+  daily_indices %>% 
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+      dplyr::select(installation, date, selected_index) %>% 
+   group_by(installation) %>% 
+   mutate_at(vars(selected_index), funs_(lag_fun)
+  )
+
+
+# join lag matrix to case-crossover dataframe
+
+cc_lag_matrix <-
+  cc_exposure_df %>% 
+    filter(year %in% 1998:2019) %>% 
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
+
+
+cc_lag_only <- 
+  cc_lag_matrix %>% 
+  dplyr::select(selected_index, lag_1:lag_5)
+
+
+# Define dlnm cross-basis (penalized splines)
+
+index_cb <-
+    crossbasis(
+      cc_lag_only,    
+      lag = 5,    # of lags
+      argvar = list(fun = "ns", df = 5),    #  functional form of the dose-response curve
+      arglag = list(fun = "ns", df = 4))    #  functional form of the lags
+
+summary(index_cb)
+
+# run model and get prediction for selected_index
+
+
+index_dlnm <- survival::clogit(case ~ 
+                  index_cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "efron",
+                  data =  cc_exposure_df) 
+
+
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)
+
+summary(pred_dlnm)
+
+## Overall effect RRs
+
+pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+
+bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
+  dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
+  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+
+
+
+```
+
+
+## Plot model (ggplot)
+```{r}
+
+# As ggplot
+  # https://www.rdocumentation.org/packages/season/versions/0.3.8/vignettes/season-vignette.Rmd link assisted with example "Plot of the temperature and death association averaging over all lags"
+
+ 
+to_plot <- 
+  data.frame(index = pred_dlnm$predvar, 
+             mean = pred_dlnm$allRRfit,
+             lower = pred_dlnm$allRRlow,
+             upper = pred_dlnm$allRRhigh)
+
+
+
+
+ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
+  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+  geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+  geom_line(size = 1.25) +
+  xlab('Max WBGT (°F)') +
+  ylab('Odds Ratio') +
+  xlim(55, NA) +
+  theme_bw() +
+  ggtitle("Daily max WBGT and HSI association \ncumulative over 0-5 days lag") +
+  labs(caption = "ORs relative to 55°F max WBGT") +
+  theme(plot.caption = element_text(hjust = 0)) 
+
+
+# "Base R" plots by lag "slices"  
+
+plot(pred_dlnm, "slices",
+     lag = 0,
+     ylim = c(0, 25),
+     xlim = c(55, 110),
+     lwd = 4,
+     col = "red",
+     main = "Exposure-Response Effects by Lag Day  \n  1998-2019", 
+     xlab = "Max WBGT (°F)", 
+     ylab = "HSI Rate Ratio")
+
+
+lines(pred_dlnm, "slices",
+     lag = 1,
+     lwd = 4,
+     col = "blue"
+)
+
+lines(pred_dlnm, "slices",
+     lag = 2,
+     lwd = 4,
+     col = "green"
+)
+
+
+lines(pred_dlnm, "slices",
+     lag = 3,
+     lwd = 4,
+     col = "orange")
+
+legend("topleft", legend = c("Lag 0", "Lag 1", "Lag 2", "Lag 3"),
+       col = c("red", "blue", "green", "orange"), lty = 1, cex = 1)
+
+
+#3D Plot prep
+
+plot(pred_dlnm, 
+     xlab = paste(selected_index), zlab = "\nRR", ylab = "\nLag", 
+     theta = 40, phi = 30, lphi = 30,
+     main = "1998-2019")
+
+
+# https://rdrr.io/cran/dlnm/src/R/seqlag.R
+seqlag <- function(lag,by = 1) seq(from = lag[1],to = lag[2],by = by)
+
+
+
+to_plot <- 
+  data.frame(index = pred_dlnm$predvar, 
+             mean = pred_dlnm$allRRfit,
+             lower = pred_dlnm$allRRlow,
+             upper = pred_dlnm$allRRhigh)
+
+
+to_3d <- list(x = matrix(pred_dlnm$predvar), 
+              y = matrix(seqlag(pred_dlnm$lag, pred_dlnm$bylag)), 
+              z = matrix(unlist(pred_dlnm$matfit), ncol = 6, byrow = TRUE))
+
+
+x <- as_vector(pred_dlnm$predvar)
+y <- as.vector(seqlag(pred_dlnm$lag, pred_dlnm$bylag))
+z <- pred_dlnm$matRRfit
+
+df_3d <-  
+  z %>% 
+    melt() %>% 
+    as_tibble() %>% 
+    rename(
+      "Max WBGT" = Var1,
+      "Lag" = Var2,
+      "OR" = value
+    ) %>% 
+    mutate(Lag = as.numeric(str_remove(Lag, "lag"))) 
+
+df_3d$OR %>% summary()
+
+
+
+# 3d plot with rayshader
+
+gg_3d <-
+  df_3d %>% 
+  filter(`Max WBGT` >= 55) %>% 
+  ggplot() +
+    geom_raster(aes(x = `Max WBGT`, y = `Lag`, fill = `OR`)) +
+    scale_fill_viridis()
+
+
+
+plot_gg(gg_3d, multicore = TRUE, width = 5, height = 5, scale = 250)
+
+
+filename_movie <- "output/max_wbgt_3d.mp4"
+
+render_movie(filename = filename_movie, type = "orbit", 
+             frames = 360,  phi = 30, zoom = 0.8, theta = -90,
+             title_text = "Max WBGT Odds Ratio")
+
+
+# 3D print file
+#filename_stl = "output/mean_wbgt_3d.stl"
+#save_3dprint(filename_stl, rotate = TRUE)
+
+
+
+```
+
+
+
+## Examine by region
+Nest `cc_exposure_df` by region
+
+```{r}
+
+# join lag matrix to case-crossover dataframe
+# mutate new list-column for lag only matrix
+
+wbgt_max_nest_region <-
+  cc_exposure_df %>%
+    filter(year %in% 1998:2019) %>%
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>% 
+    group_by(region) %>% 
+    nest() %>% 
+    rename(cc_lag_matrix = data) %>% 
+    mutate(cc_lag_only =
+             map(cc_lag_matrix, ~ .x %>% dplyr::select(selected_index, lag_1:lag_5)),
+           index_cb = 
+             map(cc_lag_only, ~ crossbasis(
+                .x,    
+                lag = 5,    # of lags
+                argvar = list(fun = "ns", df = 5),    #  functional form of the dose-response curve
+                arglag = list(fun = "ns", df = 4))                
+              ),
+           index_dlnm = 
+             map2(.x = index_cb, .y = cc_lag_matrix,  ~ survival::clogit(case ~ 
+                    .x +  # lagged, nonlinear term for exposure
+                    strata(stratum), 
+                    method = "efron",
+                    data =  .y)),
+            pred_dlnm = 
+              map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
+                .x, .y, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)))
+            
+
+wbgt_max_nest_region
+
+
+
+# Plot cumulative lag
+
+to_plot_region <-
+  wbgt_max_nest_region %>% 
+    mutate(to_plot = 
+             map(.x = pred_dlnm, ~ 
+                   data.frame(index = .x$predvar, 
+                      mean = .x$allRRfit,
+                      lower = .x$allRRlow,
+                      upper = .x$allRRhigh))) %>% 
+    dplyr::select(region, to_plot) %>% 
+      unnest(to_plot)
+
+
+
+ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
+  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+  geom_ribbon(alpha = 0.1, colour = NA) +
+  geom_line(size = 1.25) +
+  xlab('Max WBGT (°F)') +
+  ylab('Odds Ratio') +
+  xlim(55, NA) +
+  theme_bw() +
+  ggtitle("Daily max WBGT and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
+  labs(caption = "ORs relative to 55°F max WBGT") +
+  theme(plot.caption = element_text(hjust = 0)) 
+
+
+```
+
+
+
+## Examine by installation primary* branch of service
+
+Note: there is overlap at sites (eg JBSA incl Lackland AFB and Fort Sam Houston)
+Nest `cc_exposure_df` by `base_service`
+
+```{r}
+
+# join lag matrix to case-crossover dataframe
+# mutate new list-column for lag only matrix
+
+wbgt_max_nest_service <-
+  cc_exposure_df %>%
+    filter(year %in% 1998:2019) %>%
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>% 
+    group_by(base_service) %>% 
+    nest() %>% 
+    rename(cc_lag_matrix = data) %>% 
+    mutate(cc_lag_only =
+             map(cc_lag_matrix, ~ .x %>% dplyr::select(selected_index, lag_1:lag_5)),
+           index_cb = 
+             map(cc_lag_only, ~ crossbasis(
+                .x,    
+                lag = 5,    # of lags
+                argvar = list(fun = "ns", df = 5),    #  functional form of the dose-response curve
+                arglag = list(fun = "ns", df = 4))                
+              ),
+           index_dlnm = 
+             map2(.x = index_cb, .y = cc_lag_matrix,  ~ survival::clogit(case ~ 
+                    .x +  # lagged, nonlinear term for exposure
+                    strata(stratum), 
+                    method = "efron",
+                    data =  .y)),
+            pred_dlnm = 
+              map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
+                .x, .y, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)))
+            
+
+wbgt_max_nest_service
+
+
+
+# Plot cumulative lag
+
+to_plot_region <-
+  wbgt_max_nest_service %>% 
+    mutate(to_plot = 
+             map(.x = pred_dlnm, ~ 
+                   data.frame(index = .x$predvar, 
+                      mean = .x$allRRfit,
+                      lower = .x$allRRlow,
+                      upper = .x$allRRhigh))) %>% 
+    dplyr::select(base_service, to_plot) %>% 
+      unnest(to_plot)
+
+
+
+ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = base_service, fill = base_service)) +
+  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+  geom_ribbon(alpha = 0.1, colour = NA) +
+  geom_line(size = 1.25) +
+  xlab('Max WBGT (°F)') +
+  ylab('Odds Ratio') +
+  xlim(55, NA) +
+  ylim(NA, 200) +
+  theme_bw() +
+  ggtitle("Daily max WBGT and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
+  labs(caption = "ORs relative to 55°F max WBGT") +
+  theme(plot.caption = element_text(hjust = 0)) 
+
+
+```
+
+
+
+
+## Examine by time in season
+
+1st look: pre vs post 4th of July 
+days 0-185 (early season) vs days 186-366 (late season) 
+
+  mutate(`Day of Year` = lubridate::yday(date))
+```{r}
+
+
+# join lag matrix to case-crossover dataframe
+# mutate new list-column for lag only matrix
+
+wbgt_max_nest_tis <-
+  cc_exposure_df %>%
+    filter(year %in% 1998:2019) %>%
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>%
+    mutate(`Day of Year` = lubridate::yday(date),
+           `Time in season` = case_when(
+                 `Day of Year` <= 185 ~ "Early season",
+                   `Day of Year` > 185 ~ "Late season"
+              )) %>% 
+    group_by(`Time in season`) %>% 
+    nest() %>% 
+    rename(cc_lag_matrix = data) %>% 
+    mutate(cc_lag_only =
+             map(cc_lag_matrix, ~ .x %>% dplyr::select(selected_index, lag_1:lag_5)),
+           index_cb = 
+             map(cc_lag_only, ~ crossbasis(
+                .x,    
+                lag = 5,    # of lags
+                argvar = list(fun = "ns", df = 5),    #  functional form of the dose-response curve
+                arglag = list(fun = "ns", df = 4))                
+              ),
+           index_dlnm = 
+             map2(.x = index_cb, .y = cc_lag_matrix,  ~ survival::clogit(case ~ 
+                    .x +  # lagged, nonlinear term for exposure
+                    strata(stratum), 
+                    method = "efron",
+                    data =  .y)),
+            pred_dlnm = 
+              map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
+                .x, .y, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)))
+            
+
+wbgt_max_nest_tis
+
+
+
+# Plot cumulative lag
+
+to_plot_region <-
+  wbgt_max_nest_tis %>% 
+    mutate(to_plot = 
+             map(.x = pred_dlnm, ~ 
+                   data.frame(index = .x$predvar, 
+                      mean = .x$allRRfit,
+                      lower = .x$allRRlow,
+                      upper = .x$allRRhigh))) %>% 
+    dplyr::select(`Time in season`, to_plot) %>% 
+      unnest(to_plot)
+
+
+
+ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = `Time in season`, fill = `Time in season`)) +
+  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+  geom_ribbon(alpha = 0.1, colour = NA) +
+  geom_line(size = 1.25) +
+  xlab('Max WBGT (°F)') +
+  ylab('Odds Ratio') +
+  xlim(55, NA) +
+  ylim(NA, 40) +
+  theme_bw() +
+  ggtitle("Daily max WBGT and HSI association cumulative\nover 0-5 days lag by time in season") +
+  labs(caption = "ORs relative to 55°F max WBGT") +
+  theme(plot.caption = element_text(hjust = 0)) 
+
+
+```
+
+
+

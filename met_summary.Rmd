@@ -16,6 +16,11 @@ library(forcats)
 ```
 
 
+Input: `hourly_nldas`
+Key output: `daily_indices` (temp, hi, wbgt, wbgt_u) at daily mean, max, min, 95%-ile
+
+
+
 Load hourly index dataframe 
 
 ```{r}
@@ -41,13 +46,22 @@ hourly_nldas %>%
 daily_indices <-
   hourly_nldas  %>%
       drop_na %>%
-      dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt_u) %>% 
+      dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt, wbgt_u) %>% 
       group_by(installation, lubridate::date(local_dttm)) %>%
       dplyr::summarise_at(
-            .vars = vars(tmp_f, heat_index, wbgt_u),
+            .vars = vars(tmp_f, heat_index, wbgt, wbgt_u),
             .funs = c(mean = "mean", max = "max", min = "min", "max95" = ~quantile(., probs = 0.95)))
 
-#write_rds(daily_indices, file = "D:/data/daily_indices.rds")
+daily_indices <-
+  daily_indices %>% 
+    rename(date = `lubridate::date(local_dttm)`)
+
+
+#write_rds(daily_indices, file = "E:/data/daily_indices.rds")
+#write_rds(daily_indices, file = "data/daily_indices.rds")
+
+daily_indices <-
+  read_rds(file = "data/daily_indices.rds")
 
 daily_indices %>% 
   count(installation) %>% View()

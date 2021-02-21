@@ -35,3 +35,4 @@ vignettes/*.pdf
 packrat/lib*/
 packrat/src/
 exposure.Rmd
+wbgt_mean.html

@@ -1,9 +1,9 @@
 ---
 title: "descriptive"
-output:
-  pdf_document: default
-  html_document: default
-editor_options:
+output: 
+  html_document:
+   keep_md: true
+editor_options: 
   chunk_output_type: console
 ---
 
@@ -58,20 +58,20 @@ cc_exposure_df <-
 
 
 cc_exposure_df %>% 
-  count(cc_exposure_df) %>% View() #24 installations
+  count(installation_name) %>% View() #24 installations
 
 
-cc_exposure_df <-
-  cc_exposure_df %>% 
-     mutate(installation_name = as_factor(installation_name),
-       installation_name = recode(installation_name,
-        "mcb_camp_lejeune" = "camp_lejeune",
-        "mcb_camp_pendleton" = "camp_pendleton",
-        "fort_benning_ga" = "fort_benning",
-        "fort_sam_houston" = "jbsa",
-        "mcrd_beaufort_parris_island" = "parris_island",
-        "mcb_quantico" = "quantico",
-        "twentynine_palms_main_base" = "twentynine_palms")) 
+# cc_exposure_df <-
+#   cc_exposure_df %>% 
+#      mutate(installation_name = as_factor(installation_name),
+#        installation_name = recode(installation_name,
+#         "mcb_camp_lejeune" = "camp_lejeune",
+#         "mcb_camp_pendleton" = "camp_pendleton",
+#         "fort_benning_ga" = "fort_benning",
+#         "fort_sam_houston" = "jbsa",
+#         "mcrd_beaufort_parris_island" = "parris_island",
+#         "mcb_quantico" = "quantico",
+#         "twentynine_palms_main_base" = "twentynine_palms")) 
 
 
 # write_rds(cc_exposure_df, file = "data/cc_exposure_df.rds")
@@ -229,8 +229,36 @@ table1::table1(~ service + region + race_ethnic | source, data = to_table1)
 
 table1::table1(~ factor(hsi) + factor(age) + factor(sex) + 
                factor(race_ethnic) + factor(grade) | factor(source), data = to_table1)
-  
 
+
+
+
+# Cases over time
+
+cc_exposure_df %>% 
+  filter(case == 1) %>% 
+  group_by(lubridate::year(date)) %>% 
+  count() %>% 
+  rename(year = `lubridate::year(date)`) %>% 
+  ggplot(aes(x = year, y= n)) +
+      geom_point() +
+      geom_line(size = 1.5) +
+      theme_bw() +
+  labs(title = "HSI cases by year",
+       x = "year")
+
+
+cc_exposure_df %>% 
+  filter(case == 1) %>% 
+  group_by(lubridate::year(date), installation_name) %>% 
+  count() %>% 
+  rename(year = `lubridate::year(date)`) %>% 
+  ggplot(aes(x = year, y = n, colour = installation_name)) +
+      geom_point() +
+      geom_line(size = 0.8) +
+      theme_bw() +
+  labs(title = "HSI cases by year",
+       x = "year")
 ```
 
 
@@ -238,7 +266,8 @@ table1::table1(~ factor(hsi) + factor(age) + factor(sex) +
 
 ```{r}
 
-#Density plot, all case days 1998-2018
+#Density plot, all case days 1998-2018, WBGT
+
 
 to_density_plot <-
   cc_exposure_df %>%
@@ -248,9 +277,10 @@ to_density_plot <-
            "Max WBGT" = weathermetrics::celsius.to.fahrenheit(wbgt_max)) %>% 
     dplyr::select(installation_name, `Mean WBGT`, `Max WBGT`) %>% 
     pivot_longer(-installation_name, names_to = "Index", values_to = "Value")
+
   
 #check for missing values
-  to_density_plot[!complete.cases(to_density_plot),] %>% View()
+  to_density_plot[!complete.cases(to_density_plot),]
   
   
 to_density_plot %>%   
@@ -262,6 +292,14 @@ to_density_plot %>%
        x = "Daily Index Value (°F)")
 
 
+to_density_plot %>% 
+  group_by(Index) %>% 
+  summarise(Mean = mean(Value),
+            SD = sd(Value),
+            `75th` = quantile(Value, .75),
+            `95th` = quantile(Value, .95),
+            IQR = IQR(Value)) %>% 
+  knitr::kable()
 
 ## Day of year
 
@@ -286,7 +324,43 @@ cc_exposure_df %>%
 
 ```
 
+## Temperature indices
+```{r}
+#Density plot, all case days 1998-2018, Temp
 
+
+to_density_plot <-
+  cc_exposure_df %>%
+    filter(case == 1) %>% 
+    dplyr::select(installation_name, d_event, tmp_f_mean, tmp_f_max) %>% 
+    rename("Mean Temp" = tmp_f_mean,
+           "Max Temp" = tmp_f_max) %>% 
+    dplyr::select(installation_name, `Mean Temp`, `Max Temp`) %>% 
+    pivot_longer(-installation_name, names_to = "Index", values_to = "Value")
+
+  
+#check for missing values
+  to_density_plot[!complete.cases(to_density_plot),] 
+  
+to_density_plot %>%   
+  ggplot(aes(x = Value, fill = Index, colour = Index)) +
+      geom_density(alpha = 0.5) +
+      geom_rug() +
+      theme_bw() +
+  labs(title = "Density plot of daily indices on all case days, 1998-2019",
+       x = "Daily Index Value (°F)")
+
+
+to_density_plot %>% 
+  group_by(Index) %>% 
+  summarise(Mean = mean(Value),
+            SD = sd(Value),
+            `75th` = quantile(Value, .75),
+            `95th` = quantile(Value, .95),
+            IQR = IQR(Value)) %>% 
+  knitr::kable()
+
+```
 
 
 
@@ -295,7 +369,8 @@ cc_exposure_df %>%
 ```{r}
 
 centroid_coords <-
-  read_rds("E:/data/centroid_coords.rds")
+  read_rds("data/centroid_coords.rds")
+
 
 
 centroid_coords$site_name 
@@ -394,7 +469,7 @@ ggplot(data = usa) +
     theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
         size = 0.5), panel.background = element_rect(fill = "azure2"))
 
-ggsave("output/study_map.png")
+# ggsave("output/study_map.png")
 
 ```
 
@@ -407,7 +482,7 @@ ggsave("output/study_map.png")
 ## Earlier descriptive review
 Read in daily NLDAS
 
-```{r}
+```{r, eval = FALSE}
 
 daily_nldas <- read_rds(file = "E:/data/daily_nldas.rds")
 
@@ -416,7 +491,7 @@ daily_nldas <- read_rds(file = "E:/data/daily_nldas.rds")
 
 "Table 1"
 
-```{r}
+```{r, eval = FALSE}
 
 
 # Outcomes 
@@ -446,7 +521,7 @@ table1::table1(~ factor(sex) + factor(age) + factor(grade) + bmi | case, data = 
 
 
 Compare WBGT to Temp and Heat Index 
-```{r}
+```{r, eval = FALSE}
 
 
 daily_nldas %>% 

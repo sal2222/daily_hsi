@@ -1052,8 +1052,232 @@ cc_exposure_df %>%
 ![](descriptive_files/figure-html/unnamed-chunk-4-2.png)<!-- -->
 
 
+
+
+
+
 ## Exposures
 
+
+## Scatterplot (correlogram) by indices
+
+```r
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+  dplyr::select(tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>% 
+  GGally::ggpairs(title = "Correlogram of daily indices for HSI case days, 1998-2019") +
+    theme_bw()
+```
+
+![](descriptive_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+```r
+#ggsave("output/index_correlogram.png")
+
+
+# Log transformed indices
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+  dplyr::select(tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>%
+  log(.) %>% 
+  GGally::ggpairs(title = "Correlogram of daily indices (Log transformed) for HSI case days, 1998-2019") +
+    theme_bw()
+```
+
+```
+## Warning in FUN(X[[i]], ...): NaNs produced
+
+## Warning in FUN(X[[i]], ...): NaNs produced
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 240 rows containing missing values
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 62 rows containing missing values
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 240 rows containing missing values
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 62 rows containing missing values
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 240 rows containing missing values
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 62 rows containing missing values
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 240 rows containing missing values
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 62 rows containing missing values
+```
+
+```
+## Warning: Removed 240 rows containing missing values (geom_point).
+
+## Warning: Removed 240 rows containing missing values (geom_point).
+
+## Warning: Removed 240 rows containing missing values (geom_point).
+
+## Warning: Removed 240 rows containing missing values (geom_point).
+```
+
+```
+## Warning: Removed 240 rows containing non-finite values (stat_density).
+```
+
+```
+## Warning in ggally_statistic(data = data, mapping = mapping, na.rm = na.rm, :
+## Removed 240 rows containing missing values
+```
+
+```
+## Warning: Removed 62 rows containing missing values (geom_point).
+
+## Warning: Removed 62 rows containing missing values (geom_point).
+
+## Warning: Removed 62 rows containing missing values (geom_point).
+
+## Warning: Removed 62 rows containing missing values (geom_point).
+```
+
+```
+## Warning: Removed 240 rows containing missing values (geom_point).
+```
+
+```
+## Warning: Removed 62 rows containing non-finite values (stat_density).
+```
+
+![](descriptive_files/figure-html/unnamed-chunk-5-2.png)<!-- -->
+
+
+### Index distributions
+
+Cullen and Frey graph (square of skewness vs kurtosis)
+
+
+```r
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+    pull(tmp_f_mean) %>% 
+    fitdistrplus::descdist(., boot = 2000)
+```
+
+![](descriptive_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
+```
+## summary statistics
+## ------
+## min:  4.026667   max:  99.33708 
+## median:  79.82708 
+## mean:  76.54029 
+## estimated sd:  11.45315 
+## estimated skewness:  -1.531158 
+## estimated kurtosis:  6.150303
+```
+
+```r
+tmp_mean_vector <-
+  cc_exposure_df %>% 
+      filter(case == 1) %>% 
+      pull(tmp_f_mean) 
+
+tmp_mean_vector %>% 
+  fitdist(.,"lnorm") %>% 
+  summary()
+```
+
+```
+## Fitting of the distribution ' lnorm ' by maximum likelihood 
+## Parameters : 
+##          estimate   Std. Error
+## meanlog 4.3234466 0.0010272362
+## sdlog   0.1827268 0.0007262678
+## Loglikelihood:  -127916.6   AIC:  255837.3   BIC:  255854 
+## Correlation matrix:
+##         meanlog sdlog
+## meanlog       1     0
+## sdlog         0     1
+```
+
+```r
+tmp_mean_vector %>% 
+  fitdist(.,"lnorm") %>% 
+    plot()
+```
+
+![](descriptive_files/figure-html/unnamed-chunk-6-2.png)<!-- -->
+
+```r
+tmp_mean_vector %>% 
+ fitdist(., "norm", method = "mme", gof = "CvM") %>% .$aic
+```
+
+```
+## [1] 244102.3
+```
+
+```r
+tmp_mean_vector %>% 
+ fitdist(., "lnorm", method = "mme", gof = "CvM") %>% .$aic
+```
+
+```
+## [1] 258927.6
+```
+
+```r
+tmp_mean_vector %>% 
+ fitdist(., "gamma", method = "mme", gof = "CvM") %>% .$aic
+```
+
+```
+## [1] 252286.6
+```
+
+```r
+tmp_mean_vector %>% 
+ fitdist(., "logis", method = "mme", gof = "CvM") %>% .$aic
+```
+
+```
+## [1] 241273.6
+```
+
+```r
+tmp_mean_vector %>% 
+ fitdist(., "exp", method = "mme", gof = "CvM") %>% .$aic
+```
+
+```
+## [1] 337800.4
+```
+
+
+
+
+
+
+### Density plot
 
 ```r
 #Density plot, all case days 1998-2018, WBGT
@@ -1088,7 +1312,7 @@ to_density_plot %>%
        x = "Daily Index Value (°F)")
 ```
 
-![](descriptive_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+![](descriptive_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 ```r
 to_density_plot %>% 
@@ -1097,6 +1321,7 @@ to_density_plot %>%
             SD = sd(Value),
             `75th` = quantile(Value, .75),
             `95th` = quantile(Value, .95),
+              max = max(Value),
             IQR = IQR(Value)) %>% 
   knitr::kable()
 ```
@@ -1107,10 +1332,65 @@ to_density_plot %>%
 
 
 
-|Index     |     Mean|       SD|  75th|  95th|   IQR|
-|:---------|--------:|--------:|-----:|-----:|-----:|
-|Max WBGT  | 80.57825| 10.25491| 87.29| 91.58| 11.00|
-|Mean WBGT | 71.83890| 10.54947| 79.53| 82.59| 12.66|
+|Index     |     Mean|       SD|  75th|  95th|    max|   IQR|
+|:---------|--------:|--------:|-----:|-----:|------:|-----:|
+|Max WBGT  | 80.57825| 10.25491| 87.29| 91.58| 105.20| 11.00|
+|Mean WBGT | 71.83890| 10.54947| 79.53| 82.59|  86.94| 12.66|
+
+```r
+#Density plot, all case days 1998-2018, Heat Index
+
+
+to_density_plot <-
+  cc_exposure_df %>%
+    filter(case == 1) %>% 
+    dplyr::select(installation_name, `Mean Heat Index` = heat_index_mean, `Max Heat Index` = heat_index_max) %>% 
+    pivot_longer(-installation_name, names_to = "Index", values_to = "Value")
+
+  
+#check for missing values
+  to_density_plot[!complete.cases(to_density_plot),]
+```
+
+```
+## # A tibble: 0 x 3
+## # ... with 3 variables: installation_name <fct>, Index <chr>, Value <dbl>
+```
+
+```r
+to_density_plot %>%   
+  ggplot(aes(x = Value, fill = Index, colour = Index)) +
+      geom_density(alpha = 0.5) +
+      geom_rug() +
+      theme_bw() +
+  labs(title = "Density plot of daily indices on all case days, 1998-2019",
+       x = "Daily Index Value (°F)")
+```
+
+![](descriptive_files/figure-html/unnamed-chunk-7-2.png)<!-- -->
+
+```r
+to_density_plot %>% 
+  group_by(Index) %>% 
+  summarise(Mean = mean(Value),
+            SD = sd(Value),
+            `75th` = quantile(Value, .75),
+            `95th` = quantile(Value, .95),
+            max = max(Value), 
+            IQR = IQR(Value)) %>% 
+  knitr::kable()
+```
+
+```
+## `summarise()` ungrouping output (override with `.groups` argument)
+```
+
+
+
+|Index           |     Mean|       SD|     75th|      95th|      max|      IQR|
+|:---------------|--------:|--------:|--------:|---------:|--------:|--------:|
+|Max Heat Index  | 88.00601| 14.23691| 98.13000| 105.48000| 117.3200| 16.55000|
+|Mean Heat Index | 78.43958| 13.30486| 87.98604|  94.10083| 104.6437| 16.48979|
 
 ```r
 ## Day of year
@@ -1125,7 +1405,7 @@ cc_exposure_df %>%
   labs(title = "Day of year for HSI case days, 1998-2019")
 ```
 
-![](descriptive_files/figure-html/unnamed-chunk-5-2.png)<!-- -->
+![](descriptive_files/figure-html/unnamed-chunk-7-3.png)<!-- -->
 
 ```r
 cc_exposure_df %>%
@@ -1138,7 +1418,7 @@ cc_exposure_df %>%
   labs(title = "Day of year for HSI case days, 1998-2019")
 ```
 
-![](descriptive_files/figure-html/unnamed-chunk-5-3.png)<!-- -->
+![](descriptive_files/figure-html/unnamed-chunk-7-4.png)<!-- -->
 
 ## Temperature indices
 
@@ -1175,7 +1455,7 @@ to_density_plot %>%
        x = "Daily Index Value (°F)")
 ```
 
-![](descriptive_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+![](descriptive_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 ```r
 to_density_plot %>% 
@@ -1439,7 +1719,7 @@ ggplot(data = usa) +
         size = 0.5), panel.background = element_rect(fill = "azure2"))
 ```
 
-![](descriptive_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+![](descriptive_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 ```r
 # ggsave("output/study_map.png")

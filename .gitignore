@@ -36,3 +36,8 @@ packrat/lib*/
 packrat/src/
 exposure.Rmd
 wbgt_mean.html
+temp_mean.html
+heat_index_mean.html
+heat_index_max.html
+temp_max.html
+descriptive.html

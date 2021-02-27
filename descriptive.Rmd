@@ -30,6 +30,8 @@ library(sf)
 library(maps)
 library(ggspatial)
 library(ggrepel)
+library(GGally)
+library(fitdistrplus)
 
 ```
 
@@ -262,8 +264,83 @@ cc_exposure_df %>%
 ```
 
 
+
+
+
+
 ## Exposures
 
+
+## Scatterplot (correlogram) by indices
+```{r}
+
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+  dplyr::select(tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>% 
+  GGally::ggpairs(title = "Correlogram of daily indices for HSI case days, 1998-2019") +
+    theme_bw()
+
+#ggsave("output/index_correlogram.png")
+
+
+# Log transformed indices
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+  dplyr::select(tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>%
+  log(.) %>% 
+  GGally::ggpairs(title = "Correlogram of daily indices (Log transformed) for HSI case days, 1998-2019") +
+    theme_bw()
+```
+
+
+### Index distributions
+
+Cullen and Frey graph (square of skewness vs kurtosis)
+
+```{r}
+
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+    pull(tmp_f_mean) %>% 
+    fitdistrplus::descdist(., boot = 2000)
+
+tmp_mean_vector <-
+  cc_exposure_df %>% 
+      filter(case == 1) %>% 
+      pull(tmp_f_mean) 
+
+tmp_mean_vector %>% 
+  fitdist(.,"lnorm") %>% 
+  summary()
+
+
+tmp_mean_vector %>% 
+  fitdist(.,"lnorm") %>% 
+    plot()
+
+
+tmp_mean_vector %>% 
+ fitdist(., "norm", method = "mme", gof = "CvM") %>% .$aic
+
+tmp_mean_vector %>% 
+ fitdist(., "lnorm", method = "mme", gof = "CvM") %>% .$aic
+
+tmp_mean_vector %>% 
+ fitdist(., "gamma", method = "mme", gof = "CvM") %>% .$aic
+
+tmp_mean_vector %>% 
+ fitdist(., "logis", method = "mme", gof = "CvM") %>% .$aic
+
+tmp_mean_vector %>% 
+ fitdist(., "exp", method = "mme", gof = "CvM") %>% .$aic
+```
+
+
+
+
+
+
+### Density plot
 ```{r}
 
 #Density plot, all case days 1998-2018, WBGT
@@ -298,8 +375,46 @@ to_density_plot %>%
             SD = sd(Value),
             `75th` = quantile(Value, .75),
             `95th` = quantile(Value, .95),
+              max = max(Value),
             IQR = IQR(Value)) %>% 
   knitr::kable()
+
+
+
+#Density plot, all case days 1998-2018, Heat Index
+
+
+to_density_plot <-
+  cc_exposure_df %>%
+    filter(case == 1) %>% 
+    dplyr::select(installation_name, `Mean Heat Index` = heat_index_mean, `Max Heat Index` = heat_index_max) %>% 
+    pivot_longer(-installation_name, names_to = "Index", values_to = "Value")
+
+  
+#check for missing values
+  to_density_plot[!complete.cases(to_density_plot),]
+  
+  
+to_density_plot %>%   
+  ggplot(aes(x = Value, fill = Index, colour = Index)) +
+      geom_density(alpha = 0.5) +
+      geom_rug() +
+      theme_bw() +
+  labs(title = "Density plot of daily indices on all case days, 1998-2019",
+       x = "Daily Index Value (°F)")
+
+to_density_plot %>% 
+  group_by(Index) %>% 
+  summarise(Mean = mean(Value),
+            SD = sd(Value),
+            `75th` = quantile(Value, .75),
+            `95th` = quantile(Value, .95),
+            max = max(Value), 
+            IQR = IQR(Value)) %>% 
+  knitr::kable()
+
+
+
 
 ## Day of year
 
@@ -357,6 +472,7 @@ to_density_plot %>%
             SD = sd(Value),
             `75th` = quantile(Value, .75),
             `95th` = quantile(Value, .95),
+            max = max(Value),
             IQR = IQR(Value)) %>% 
   knitr::kable()
 

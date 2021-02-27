@@ -1,5 +1,5 @@
 ---
-title: "wbgt_mean"
+title: "heat_index_mean"
 output: 
   html_document:
    keep_md: true
@@ -7,31 +7,11 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-library(tidyverse)
-library(plotly)
-library(lattice)
-#remotes::install_github("tylermorganwall/rayshader")
-library(rayshader)
-library(dlnm)
-library(survival)
-library(splines)
-library(broom)
-library(plotly)
-library(weathermetrics)
-library(viridis)
-library(reshape2)
-library(magick)
-library(av)
-library(ggrepel)
-
-```
 
 
-```{r}
 
+
+```r
 cc_exposure_df <-
   read_rds(file = "data/cc_exposure_df.rds") 
 
@@ -71,16 +51,52 @@ daily_indices <-
 
 
 daily_indices %>% 
-  count(installation) 
+  count(installation)
+```
 
+```
+## # A tibble: 24 x 2
+## # Groups:   installation [24]
+##    installation       n
+##    <chr>          <int>
+##  1 camp_lejeune   10958
+##  2 camp_pendleton 10958
+##  3 eglin_afb      10958
+##  4 fort_benning   10958
+##  5 fort_bliss     10958
+##  6 fort_bragg     10958
+##  7 fort_campbell  10958
+##  8 fort_gordon    10958
+##  9 fort_hood      10958
+## 10 fort_jackson   10958
+## # ... with 14 more rows
+```
+
+```r
 cc_exposure_df %>% 
   count(installation_name) 
+```
 
+```
+## # A tibble: 24 x 2
+##    installation_name     n
+##    <fct>             <int>
+##  1 fort_benning      20795
+##  2 fort_bragg        20964
+##  3 camp_lejeune      13197
+##  4 parris_island     10876
+##  5 fort_campbell      8773
+##  6 fort_polk          7466
+##  7 fort_jackson       7782
+##  8 camp_pendleton     6595
+##  9 fort_hood          5830
+## 10 mcrd_san_diego     5127
+## # ... with 14 more rows
 ```
 
 
-```{r}
 
+```r
 # DLNM
 ## Lags function
 
@@ -90,14 +106,13 @@ lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"),
   sep = "_")
 
 lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
-
 ```
 
 
 
-```{r, warning = FALSE}
 
-selected_index <- "wbgt_mean"
+```r
+selected_index <- "heat_index_mean"
 
 
   # create lag matrix
@@ -109,8 +124,16 @@ lag_matrix <-
    group_by(installation) %>% 
    mutate_at(vars(selected_index), funs_(lag_fun)
   )
+```
 
+```
+## Note: Using an external vector in selections is ambiguous.
+## i Use `all_of(selected_index)` instead of `selected_index` to silence this message.
+## i See <https://tidyselect.r-lib.org/reference/faq-external-vector.html>.
+## This message is displayed once per session.
+```
 
+```r
 # join lag matrix to case-crossover dataframe
 
 cc_lag_matrix <-
@@ -135,7 +158,29 @@ index_cb <-
       arglag = list(fun = "ns", df = 4))    #  functional form of the lags
 
 summary(index_cb)
+```
 
+```
+## CROSSBASIS FUNCTIONS
+## observations: 139875 
+## range: 1.467917 to 104.6437 
+## lag period: 0 5 
+## total df:  20 
+## 
+## BASIS FOR VAR:
+## fun: ns 
+## knots: 66.64775 76.56708 82.63208 87.91917 
+## intercept: FALSE 
+## Boundary.knots: 1.467917 104.6437 
+## 
+## BASIS FOR LAG:
+## fun: ns 
+## knots: 1.666667 3.333333 
+## intercept: TRUE 
+## Boundary.knots: 0 5
+```
+
+```r
 # run model and get prediction for selected_index
 
 
@@ -146,27 +191,66 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)
+  # with centering value unspecified: Automatically set to 60
 
 summary(pred_dlnm)
+```
 
+```
+## PREDICTIONS:
+## values: 101 
+## centered at: 60 
+## range: 0 , 100 
+## lag: 0 5 
+## exponentiated: yes 
+## cumulative: yes 
+## 
+## MODEL:
+## parameters: 20 
+## class: clogit coxph 
+## link: logit
+```
+
+```r
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
+```
 
+```
+##       75       80       85       90 
+## 2.635733 3.372999 4.576738 6.972761
+```
+
+```r
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88")) %>% 
+  dplyr::filter(var %in% c("75", "80", "85", "90")) %>% 
   knitr::kable()
+```
 
-
-
+```
+## New names:
+## * NA -> ...1
+## * NA -> ...2
+## * NA -> ...3
+## * NA -> ...4
 ```
 
 
-## Plot model (ggplot)
-```{r}
 
+|var |       rr|   ci_low|  ci_high|
+|:---|--------:|--------:|--------:|
+|75  | 2.635733| 2.397158| 2.898052|
+|80  | 3.372999| 3.063658| 3.713575|
+|85  | 4.576738| 4.147948| 5.049853|
+|90  | 6.972761| 6.255696| 7.772020|
+
+
+## Plot model (ggplot)
+
+```r
 # As ggplot
   # https://www.rdocumentation.org/packages/season/versions/0.3.8/vignettes/season-vignette.Rmd link assisted with example "Plot of the temperature and death association averaging over all lags"
 
@@ -184,25 +268,32 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(50, NA) +
+  xlim(60, NA) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association \ncumulative over 0-5 days lag") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association \ncumulative over 0-5 days lag") +
+  labs(caption = "ORs relative to 60°F mean temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
+```
 
+```
+## Warning: Removed 60 row(s) containing missing values (geom_path).
+```
 
+![](heat_index_mean_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+
+```r
 # "Base R" plots by lag "slices"  
 
 plot(pred_dlnm, "slices",
      lag = 0,
      ylim = c(0, 25),
-     xlim = c(50, 90),
+     xlim = c(60, 105),
      lwd = 4,
      col = "red",
      main = "Exposure-Response Effects by Lag Day  \n  1998-2019", 
-     xlab = "Mean WBGT (°F)", 
+     xlab = "Mean Heat Index (°F)", 
      ylab = "HSI Rate Ratio")
 
 
@@ -226,16 +317,22 @@ lines(pred_dlnm, "slices",
 
 legend("topleft", legend = c("Lag 0", "Lag 1", "Lag 2", "Lag 3"),
        col = c("red", "blue", "green", "orange"), lty = 1, cex = 1)
+```
 
+![](heat_index_mean_files/figure-html/unnamed-chunk-4-2.png)<!-- -->
 
+```r
 #3D Plot prep
 
 plot(pred_dlnm, 
      xlab = paste(selected_index), zlab = "\nRR", ylab = "\nLag", 
      theta = 40, phi = 30, lphi = 30,
      main = "1998-2019")
+```
 
+![](heat_index_mean_files/figure-html/unnamed-chunk-4-3.png)<!-- -->
 
+```r
 # https://rdrr.io/cran/dlnm/src/R/seqlag.R
 seqlag <- function(lag,by = 1) seq(from = lag[1],to = lag[2],by = by)
 
@@ -262,24 +359,28 @@ df_3d <-
     melt() %>% 
     as_tibble() %>% 
     rename(
-      "Mean WBGT" = Var1,
+      "Mean Heat Index" = Var1,
       "Lag" = Var2,
       "OR" = value
     ) %>% 
     mutate(Lag = as.numeric(str_remove(Lag, "lag"))) 
 
 df_3d$OR %>% summary()
+```
 
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  0.6860  0.8864  0.9481  1.1009  1.0378  9.0908
+```
 
-
+```r
 # 3d plot with rayshader
 
 gg_3d <-
   df_3d %>% 
-  filter(`Mean WBGT` >= 50,
-         `Mean WBGT` <= 88) %>% 
+  filter(`Mean Heat Index` >= 60) %>% 
   ggplot() +
-    geom_raster(aes(x = `Mean WBGT`, y = `Lag`, fill = `OR`)) +
+    geom_raster(aes(x = `Mean Heat Index`, y = `Lag`, fill = `OR`)) +
     scale_fill_viridis()
 
 
@@ -289,19 +390,16 @@ plot_gg(gg_3d, multicore = TRUE, width = 5, height = 5, scale = 250)
 
 # Render 3D movie
 
-# filename_movie <- "output/mean_wbgt_3d.mp4"
+# filename_movie <- "output/mean_temp_3d.mp4"
 # 
 # render_movie(filename = filename_movie, type = "orbit", 
 #              frames = 360,  phi = 30, zoom = 0.8, theta = -90,
-#              title_text = "Mean WBGT Odds Ratio")
+#              title_text = "Mean Temperature Odds Ratio")
 
 
 # 3D print file
-#filename_stl = "output/mean_wbgt_3d.stl"
+#filename_stl = "output/mean_temp_3d.stl"
 #save_3dprint(filename_stl, rotate = TRUE)
-
-
-
 ```
 
 
@@ -309,9 +407,8 @@ plot_gg(gg_3d, multicore = TRUE, width = 5, height = 5, scale = 250)
 ## Examine by region
 Nest `cc_exposure_df` by region
 
-```{r, warning = FALSE}
 
-
+```r
 # create lag matrix
 
 lag_matrix <-
@@ -326,7 +423,7 @@ lag_matrix <-
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_region <-
+heat_index_mean_nest_region <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -351,17 +448,28 @@ wbgt_mean_nest_region <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_region
+heat_index_mean_nest_region
+```
 
+```
+## # A tibble: 4 x 6
+## # Groups:   region [4]
+##   region   cc_lag_matrix     cc_lag_only     index_cb       index_dlnm pred_dlnm
+##   <chr>    <list>            <list>          <list>         <list>     <list>   
+## 1 Southea~ <tibble [87,561 ~ <tibble [87,56~ <crossbss [87~ <clogit>   <crosspr~
+## 2 Ohio Va~ <tibble [12,613 ~ <tibble [12,61~ <crossbss [12~ <clogit>   <crosspr~
+## 3 South    <tibble [23,547 ~ <tibble [23,54~ <crossbss [23~ <clogit>   <crosspr~
+## 4 West     <tibble [16,154 ~ <tibble [16,15~ <crossbss [16~ <clogit>   <crosspr~
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_region <-
-  wbgt_mean_nest_region %>% 
+  heat_index_mean_nest_region %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -377,26 +485,50 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.1, colour = NA) +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
   xlim(50, NA) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
+  labs(caption = "ORs relative to 60°F mean Heat Index") +
   theme(plot.caption = element_text(hjust = 0)) 
+```
 
+![](heat_index_mean_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
-
+```r
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
+```
 
+```
+##       75       80       85       90 
+## 2.635733 3.372999 4.576738 6.972761
+```
+
+```r
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
+```
 
+```
+## New names:
+## * NA -> ...1
+## * NA -> ...2
+## * NA -> ...3
+## * NA -> ...4
+```
 
-
+```
+## # A tibble: 4 x 4
+##   var      rr ci_low ci_high
+##   <chr> <dbl>  <dbl>   <dbl>
+## 1 75     2.64   2.40    2.90
+## 2 80     3.37   3.06    3.71
+## 3 85     4.58   4.15    5.05
+## 4 90     6.97   6.26    7.77
 ```
 
 
@@ -406,9 +538,8 @@ bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pre
 Note: there is overlap at sites (eg JBSA incl Lackland AFB and Fort Sam Houston)
 Nest `cc_exposure_df` by `base_service`
 
-```{r, warning = FALSE}
 
-
+```r
 # create lag matrix
 
 lag_matrix <-
@@ -423,7 +554,7 @@ lag_matrix <-
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_service <-
+heat_index_mean_nest_service <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -448,17 +579,28 @@ wbgt_mean_nest_service <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_service
+heat_index_mean_nest_service
+```
 
+```
+## # A tibble: 4 x 6
+## # Groups:   base_service [4]
+##   base_service cc_lag_matrix    cc_lag_only    index_cb     index_dlnm pred_dlnm
+##   <chr>        <list>           <list>         <list>       <list>     <list>   
+## 1 Army         <tibble [88,629~ <tibble [88,6~ <crossbss [~ <clogit>   <crosspr~
+## 2 Marine Corps <tibble [42,871~ <tibble [42,8~ <crossbss [~ <clogit>   <crosspr~
+## 3 Air Force    <tibble [5,449 ~ <tibble [5,44~ <crossbss [~ <clogit>   <crosspr~
+## 4 Navy         <tibble [2,926 ~ <tibble [2,92~ <crossbss [~ <clogit>   <crosspr~
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_region <-
-  wbgt_mean_nest_service %>% 
+  heat_index_mean_nest_service %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -474,27 +616,51 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.1, colour = NA) +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(50, NA) +
+  xlim(60, NA) +
   ylim(NA, 200) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
+  labs(caption = "ORs relative to 60°F mean Heat Index") +
   theme(plot.caption = element_text(hjust = 0)) 
+```
 
+![](heat_index_mean_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
-
+```r
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
+```
 
+```
+##       75       80       85       90 
+## 2.635733 3.372999 4.576738 6.972761
+```
+
+```r
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
+```
 
+```
+## New names:
+## * NA -> ...1
+## * NA -> ...2
+## * NA -> ...3
+## * NA -> ...4
+```
 
-
+```
+## # A tibble: 4 x 4
+##   var      rr ci_low ci_high
+##   <chr> <dbl>  <dbl>   <dbl>
+## 1 75     2.64   2.40    2.90
+## 2 80     3.37   3.06    3.71
+## 3 85     4.58   4.15    5.05
+## 4 90     6.97   6.26    7.77
 ```
 
 
@@ -506,13 +672,12 @@ bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pre
 days 0-185 (early season) vs days 186-366 (late season) 
 
   mutate(`Day of Year` = lubridate::yday(date))
-```{r, warning = FALSE}
 
-
+```r
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_tis <-
+heat_index_mean_nest_tis <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -542,17 +707,26 @@ wbgt_mean_nest_tis <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_tis
+heat_index_mean_nest_tis
+```
 
+```
+## # A tibble: 2 x 6
+## # Groups:   Time in season [2]
+##   `Time in season` cc_lag_matrix   cc_lag_only   index_cb   index_dlnm pred_dlnm
+##   <chr>            <list>          <list>        <list>     <list>     <list>   
+## 1 Late season      <tibble [83,63~ <tibble [83,~ <crossbss~ <clogit>   <crosspr~
+## 2 Early season     <tibble [56,24~ <tibble [56,~ <crossbss~ <clogit>   <crosspr~
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_region <-
-  wbgt_mean_nest_tis %>% 
+  heat_index_mean_nest_tis %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -568,27 +742,51 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.1, colour = NA) +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(50, NA) +
+  xlim(60, NA) +
   ylim(NA, 200) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by time in season") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by time in season") +
+  labs(caption = "ORs relative to 60°F mean temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
+```
 
+![](heat_index_mean_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
-
+```r
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
+```
 
+```
+##       75       80       85       90 
+## 2.635733 3.372999 4.576738 6.972761
+```
+
+```r
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
+```
 
+```
+## New names:
+## * NA -> ...1
+## * NA -> ...2
+## * NA -> ...3
+## * NA -> ...4
+```
 
-
+```
+## # A tibble: 4 x 4
+##   var      rr ci_low ci_high
+##   <chr> <dbl>  <dbl>   <dbl>
+## 1 75     2.64   2.40    2.90
+## 2 80     3.37   3.06    3.71
+## 3 85     4.58   4.15    5.05
+## 4 90     6.97   6.26    7.77
 ```
 
 
@@ -598,13 +796,12 @@ bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pre
 days 0-185 (early season) vs days 186-366 (late season) 
 
   mutate(`Day of Year` = lubridate::yday(date))
-```{r, warning = FALSE}
 
-
+```r
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_base <-
+heat_index_mean_nest_base <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -629,17 +826,35 @@ wbgt_mean_nest_base <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_base
+heat_index_mean_nest_base
+```
 
+```
+## # A tibble: 24 x 6
+## # Groups:   installation_name [24]
+##    installation_name cc_lag_matrix  cc_lag_only  index_cb   index_dlnm pred_dlnm
+##    <chr>             <list>         <list>       <list>     <list>     <list>   
+##  1 fort_benning      <tibble [20,7~ <tibble [20~ <crossbss~ <clogit>   <crosspr~
+##  2 fort_bragg        <tibble [20,9~ <tibble [20~ <crossbss~ <clogit>   <crosspr~
+##  3 camp_lejeune      <tibble [13,1~ <tibble [13~ <crossbss~ <clogit>   <crosspr~
+##  4 parris_island     <tibble [10,8~ <tibble [10~ <crossbss~ <clogit>   <crosspr~
+##  5 fort_campbell     <tibble [8,77~ <tibble [8,~ <crossbss~ <clogit>   <crosspr~
+##  6 fort_polk         <tibble [7,46~ <tibble [7,~ <crossbss~ <clogit>   <crosspr~
+##  7 fort_jackson      <tibble [7,78~ <tibble [7,~ <crossbss~ <clogit>   <crosspr~
+##  8 camp_pendleton    <tibble [6,59~ <tibble [6,~ <crossbss~ <clogit>   <crosspr~
+##  9 fort_hood         <tibble [5,83~ <tibble [5,~ <crossbss~ <clogit>   <crosspr~
+## 10 mcrd_san_diego    <tibble [5,12~ <tibble [5,~ <crossbss~ <clogit>   <crosspr~
+## # ... with 14 more rows
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_base <-
-  wbgt_mean_nest_base %>% 
+  heat_index_mean_nest_base %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -655,26 +870,50 @@ ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper,
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
    # geom_ribbon(alpha = 0.1, colour = NA) +
     geom_line(size = 1.25) +
-    xlab('Mean WBGT (°F)') +
+    xlab('Mean Heat Index (°F)') +
     ylab('Odds Ratio') +
-    xlim(50, NA) +
+    xlim(60, NA) +
     ylim(NA, 150) +
     theme_bw() +
-    ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by installation") +
-    labs(caption = "ORs relative to 50°F mean WBGT") +
+    ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by installation") +
+    labs(caption = "ORs relative to 60°F mean Heat Index") +
     theme(plot.caption = element_text(hjust = 0)) 
+```
 
+![](heat_index_mean_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
-
+```r
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
+```
 
+```
+##       75       80       85       90 
+## 2.635733 3.372999 4.576738 6.972761
+```
+
+```r
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
+```
 
+```
+## New names:
+## * NA -> ...1
+## * NA -> ...2
+## * NA -> ...3
+## * NA -> ...4
+```
 
-
+```
+## # A tibble: 4 x 4
+##   var      rr ci_low ci_high
+##   <chr> <dbl>  <dbl>   <dbl>
+## 1 75     2.64   2.40    2.90
+## 2 80     3.37   3.06    3.71
+## 3 85     4.58   4.15    5.05
+## 4 90     6.97   6.26    7.77
 ```
 

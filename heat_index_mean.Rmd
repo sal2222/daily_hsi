@@ -1,5 +1,5 @@
 ---
-title: "wbgt_mean"
+title: "heat_index_mean"
 output: 
   html_document:
    keep_md: true
@@ -71,7 +71,7 @@ daily_indices <-
 
 
 daily_indices %>% 
-  count(installation) 
+  count(installation)
 
 cc_exposure_df %>% 
   count(installation_name) 
@@ -97,7 +97,7 @@ lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
 
 ```{r, warning = FALSE}
 
-selected_index <- "wbgt_mean"
+selected_index <- "heat_index_mean"
 
 
   # create lag matrix
@@ -146,17 +146,18 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)
+  # with centering value unspecified: Automatically set to 60
 
 summary(pred_dlnm)
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88")) %>% 
+  dplyr::filter(var %in% c("75", "80", "85", "90")) %>% 
   knitr::kable()
 
 
@@ -184,12 +185,12 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(50, NA) +
+  xlim(60, NA) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association \ncumulative over 0-5 days lag") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association \ncumulative over 0-5 days lag") +
+  labs(caption = "ORs relative to 60°F mean temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
 
 
@@ -198,11 +199,11 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
 plot(pred_dlnm, "slices",
      lag = 0,
      ylim = c(0, 25),
-     xlim = c(50, 90),
+     xlim = c(60, 105),
      lwd = 4,
      col = "red",
      main = "Exposure-Response Effects by Lag Day  \n  1998-2019", 
-     xlab = "Mean WBGT (°F)", 
+     xlab = "Mean Heat Index (°F)", 
      ylab = "HSI Rate Ratio")
 
 
@@ -262,7 +263,7 @@ df_3d <-
     melt() %>% 
     as_tibble() %>% 
     rename(
-      "Mean WBGT" = Var1,
+      "Mean Heat Index" = Var1,
       "Lag" = Var2,
       "OR" = value
     ) %>% 
@@ -276,10 +277,9 @@ df_3d$OR %>% summary()
 
 gg_3d <-
   df_3d %>% 
-  filter(`Mean WBGT` >= 50,
-         `Mean WBGT` <= 88) %>% 
+  filter(`Mean Heat Index` >= 60) %>% 
   ggplot() +
-    geom_raster(aes(x = `Mean WBGT`, y = `Lag`, fill = `OR`)) +
+    geom_raster(aes(x = `Mean Heat Index`, y = `Lag`, fill = `OR`)) +
     scale_fill_viridis()
 
 
@@ -289,15 +289,15 @@ plot_gg(gg_3d, multicore = TRUE, width = 5, height = 5, scale = 250)
 
 # Render 3D movie
 
-# filename_movie <- "output/mean_wbgt_3d.mp4"
+# filename_movie <- "output/mean_temp_3d.mp4"
 # 
 # render_movie(filename = filename_movie, type = "orbit", 
 #              frames = 360,  phi = 30, zoom = 0.8, theta = -90,
-#              title_text = "Mean WBGT Odds Ratio")
+#              title_text = "Mean Temperature Odds Ratio")
 
 
 # 3D print file
-#filename_stl = "output/mean_wbgt_3d.stl"
+#filename_stl = "output/mean_temp_3d.stl"
 #save_3dprint(filename_stl, rotate = TRUE)
 
 
@@ -326,7 +326,7 @@ lag_matrix <-
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_region <-
+heat_index_mean_nest_region <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -351,17 +351,17 @@ wbgt_mean_nest_region <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_region
+heat_index_mean_nest_region
 
 
 
 # Plot cumulative lag
 
 to_plot_region <-
-  wbgt_mean_nest_region %>% 
+  heat_index_mean_nest_region %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -377,23 +377,23 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.1, colour = NA) +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(50, NA) +
+  xlim(60, NA) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
+  labs(caption = "ORs relative to 60°F mean Heat Index") +
   theme(plot.caption = element_text(hjust = 0)) 
 
 
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
 
 
 
@@ -423,7 +423,7 @@ lag_matrix <-
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_service <-
+heat_index_mean_nest_service <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -448,17 +448,17 @@ wbgt_mean_nest_service <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_service
+heat_index_mean_nest_service
 
 
 
 # Plot cumulative lag
 
 to_plot_region <-
-  wbgt_mean_nest_service %>% 
+  heat_index_mean_nest_service %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -474,24 +474,24 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.1, colour = NA) +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(50, NA) +
+  xlim(60, NA) +
   ylim(NA, 200) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
+  labs(caption = "ORs relative to 60°F mean Heat Index") +
   theme(plot.caption = element_text(hjust = 0)) 
 
 
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
 
 
 
@@ -512,7 +512,7 @@ days 0-185 (early season) vs days 186-366 (late season)
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_tis <-
+heat_index_mean_nest_tis <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -542,17 +542,17 @@ wbgt_mean_nest_tis <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_tis
+heat_index_mean_nest_tis
 
 
 
 # Plot cumulative lag
 
 to_plot_region <-
-  wbgt_mean_nest_tis %>% 
+  heat_index_mean_nest_tis %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -568,24 +568,24 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
   geom_ribbon(alpha = 0.1, colour = NA) +
   geom_line(size = 1.25) +
-  xlab('Mean WBGT (°F)') +
+  xlab('Mean Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(50, NA) +
+  xlim(60, NA) +
   ylim(NA, 200) +
   theme_bw() +
-  ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by time in season") +
-  labs(caption = "ORs relative to 50°F mean WBGT") +
+  ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by time in season") +
+  labs(caption = "ORs relative to 60°F mean temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
 
 
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
 
 
 
@@ -604,7 +604,7 @@ days 0-185 (early season) vs days 186-366 (late season)
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
-wbgt_mean_nest_base <-
+heat_index_mean_nest_base <-
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
@@ -629,17 +629,17 @@ wbgt_mean_nest_base <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 90, cen = 50, cumul = TRUE)))
+                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
             
 
-wbgt_mean_nest_base
+heat_index_mean_nest_base
 
 
 
 # Plot cumulative lag
 
 to_plot_base <-
-  wbgt_mean_nest_base %>% 
+  heat_index_mean_nest_base %>% 
     mutate(to_plot = 
              map(.x = pred_dlnm, ~ 
                    data.frame(index = .x$predvar, 
@@ -655,24 +655,24 @@ ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper,
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
    # geom_ribbon(alpha = 0.1, colour = NA) +
     geom_line(size = 1.25) +
-    xlab('Mean WBGT (°F)') +
+    xlab('Mean Heat Index (°F)') +
     ylab('Odds Ratio') +
-    xlim(50, NA) +
+    xlim(60, NA) +
     ylim(NA, 150) +
     theme_bw() +
-    ggtitle("Daily mean WBGT and HSI association cumulative\nover 0-5 days lag by installation") +
-    labs(caption = "ORs relative to 50°F mean WBGT") +
+    ggtitle("Daily mean Heat Index and HSI association cumulative\nover 0-5 days lag by installation") +
+    labs(caption = "ORs relative to 60°F mean Heat Index") +
     theme(plot.caption = element_text(hjust = 0)) 
 
 
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88"))
+  dplyr::filter(var %in% c("75", "80", "85", "90"))
 
 
 

@@ -1,6 +1,8 @@
 ---
 title: "wbgt_max"
-output: html_document
+output: 
+  html_document:
+   keep_md: true
 editor_options: 
   chunk_output_type: console
 ---
@@ -107,7 +109,7 @@ lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
 
 
 
-```{r}
+```{r, warning = FALSE}
 
 selected_index <- "wbgt_max"
 
@@ -300,12 +302,13 @@ gg_3d <-
 
 plot_gg(gg_3d, multicore = TRUE, width = 5, height = 5, scale = 250)
 
+# Render 3D movie
 
-filename_movie <- "output/max_wbgt_3d.mp4"
-
-render_movie(filename = filename_movie, type = "orbit", 
-             frames = 360,  phi = 30, zoom = 0.8, theta = -90,
-             title_text = "Max WBGT Odds Ratio")
+# filename_movie <- "output/max_wbgt_3d.mp4"
+# 
+# render_movie(filename = filename_movie, type = "orbit", 
+#              frames = 360,  phi = 30, zoom = 0.8, theta = -90,
+#              title_text = "Max WBGT Odds Ratio")
 
 
 # 3D print file
@@ -321,7 +324,7 @@ render_movie(filename = filename_movie, type = "orbit",
 ## Examine by region
 Nest `cc_exposure_df` by region
 
-```{r}
+```{r, warning = FALSE}
 
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
@@ -395,7 +398,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
 Note: there is overlap at sites (eg JBSA incl Lackland AFB and Fort Sam Houston)
 Nest `cc_exposure_df` by `base_service`
 
-```{r}
+```{r, warning = FALSE}
 
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
@@ -472,7 +475,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
 days 0-185 (early season) vs days 186-366 (late season) 
 
   mutate(`Day of Year` = lubridate::yday(date))
-```{r}
+```{r, warning = FALSE}
 
 
 # join lag matrix to case-crossover dataframe

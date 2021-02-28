@@ -160,22 +160,22 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 32, to = 110, cen = 60, cumul = TRUE)
 
 summary(pred_dlnm)
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86", "88")]
+pred_dlnm$allRRfit[c("80", "85", "90", "95", "100")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("74", "78", "80", "82", "84", "86", "88")) %>% 
+  dplyr::filter(var %in% c("80", "85", "90", "95", "100")) %>% 
   knitr::kable()
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("75", "80", "85", "90", "95", "100")) %>% 
+  dplyr::filter(var %in% c("80", "85", "90", "95", "100")) %>% 
   knitr::kable()
 
 ```
@@ -192,21 +192,28 @@ to_plot <-
   data.frame(index = pred_dlnm$predvar, 
              mean = pred_dlnm$allRRfit,
              lower = pred_dlnm$allRRlow,
-             upper = pred_dlnm$allRRhigh)
+             upper = pred_dlnm$allRRhigh) %>% 
+  filter(index <= 104)
 
 
 
+plot_max_wbgt <-
+  ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+    geom_line(size = 1.25) +
+    xlab('Max WBGT (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 104)) +
+    theme_bw() 
 
-ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
-  geom_line(size = 1.25) +
-  xlab('Max WBGT (°F)') +
-  ylab('Odds Ratio') +
-  xlim(55, NA) +
-  theme_bw() +
+
+
+# write_rds(plot_max_wbgt, file = "output/plot_max_wbgt.rds")
+
+plot_max_wbgt +
   ggtitle("Daily max WBGT and HSI association \ncumulative over 0-5 days lag") +
-  labs(caption = "ORs relative to 55°F max WBGT") +
+  labs(caption = "ORs relative to 60°F max WBGT") +
   theme(plot.caption = element_text(hjust = 0)) 
 
 
@@ -214,8 +221,8 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
 
 plot(pred_dlnm, "slices",
      lag = 0,
-     ylim = c(0, 25),
-     xlim = c(55, 110),
+     ylim = c(0, 4),
+     xlim = c(60, 104),
      lwd = 4,
      col = "red",
      main = "Exposure-Response Effects by Lag Day  \n  1998-2019", 
@@ -293,7 +300,7 @@ df_3d$OR %>% summary()
 
 gg_3d <-
   df_3d %>% 
-  filter(`Max WBGT` >= 55) %>% 
+  filter(`Max WBGT` >= 60) %>% 
   ggplot() +
     geom_raster(aes(x = `Max WBGT`, y = `Lag`, fill = `OR`)) +
     scale_fill_viridis()
@@ -354,7 +361,7 @@ wbgt_max_nest_region <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 110, cen = 60, cumul = TRUE)))
             
 
 wbgt_max_nest_region
@@ -372,18 +379,25 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(region, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 104)
 
 
 
-ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.1, colour = NA) +
-  geom_line(size = 1.25) +
-  xlab('Max WBGT (°F)') +
-  ylab('Odds Ratio') +
-  xlim(55, NA) +
-  theme_bw() +
+plot_max_wbgt_region <-
+  ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_line(size = 1.25) +
+    xlab('Max WBGT (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 104)) +
+    theme_bw() 
+
+# write_rds(plot_max_wbgt_region, file = "output/plot_max_wbgt_region.rds")
+
+
+plot_max_wbgt_region +
   ggtitle("Daily max WBGT and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
   labs(caption = "ORs relative to 55°F max WBGT") +
   theme(plot.caption = element_text(hjust = 0)) 
@@ -428,7 +442,7 @@ wbgt_max_nest_service <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 110, cen = 60, cumul = TRUE)))
             
 
 wbgt_max_nest_service
@@ -446,7 +460,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(base_service, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 104)
 
 
 
@@ -456,11 +471,10 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Max WBGT (°F)') +
   ylab('Odds Ratio') +
-  xlim(55, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 104)) +
   theme_bw() +
   ggtitle("Daily max WBGT and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
-  labs(caption = "ORs relative to 55°F max WBGT") +
+  labs(caption = "ORs relative to 60°F max WBGT") +
   theme(plot.caption = element_text(hjust = 0)) 
 
 
@@ -511,7 +525,7 @@ wbgt_max_nest_tis <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 110, cen = 55, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 110, cen = 60, cumul = TRUE)))
             
 
 wbgt_max_nest_tis
@@ -529,7 +543,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(`Time in season`, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 104)
 
 
 
@@ -539,16 +554,93 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Max WBGT (°F)') +
   ylab('Odds Ratio') +
-  xlim(55, NA) +
-  ylim(NA, 40) +
+  coord_cartesian(xlim = c(60, 104)) +
   theme_bw() +
   ggtitle("Daily max WBGT and HSI association cumulative\nover 0-5 days lag by time in season") +
-  labs(caption = "ORs relative to 55°F max WBGT") +
+  labs(caption = "ORs relative to 60°F max WBGT") +
   theme(plot.caption = element_text(hjust = 0)) 
 
 
 
 ```
 
+
+
+
+## Examine by installation
+
+
+```{r, warning = FALSE}
+
+
+# join lag matrix to case-crossover dataframe
+# mutate new list-column for lag only matrix
+
+wbgt_max_nest_base <-
+  cc_exposure_df %>%
+    filter(year %in% 1998:2019) %>%
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>%
+    group_by(installation_name) %>% 
+    nest() %>% 
+    rename(cc_lag_matrix = data) %>% 
+    mutate(cc_lag_only =
+             map(cc_lag_matrix, ~ .x %>% dplyr::select(selected_index, lag_1:lag_5)),
+           index_cb = 
+             map(cc_lag_only, ~ crossbasis(
+                .x,    
+                lag = 5,    # of lags
+                argvar = list(fun = "ns", df = 5),    #  functional form of the dose-response curve
+                arglag = list(fun = "ns", df = 4))                
+              ),
+           index_dlnm = 
+             map2(.x = index_cb, .y = cc_lag_matrix,  ~ survival::clogit(case ~ 
+                    .x +  # lagged, nonlinear term for exposure
+                    strata(stratum), 
+                    method = "efron",
+                    data =  .y)),
+            pred_dlnm = 
+              map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
+                .x, .y, by = 1, from = 32, to = 110, cen = 60, cumul = TRUE)))
+            
+
+wbgt_max_nest_base
+
+
+
+# Plot cumulative lag
+
+to_plot_base <-
+  wbgt_max_nest_base %>% 
+    mutate(to_plot = 
+             map(.x = pred_dlnm, ~ 
+                   data.frame(index = .x$predvar, 
+                      mean = .x$allRRfit,
+                      lower = .x$allRRlow,
+                      upper = .x$allRRhigh))) %>% 
+    dplyr::select(installation_name, to_plot) %>% 
+      unnest(to_plot) %>% 
+  filter(index <= 104)
+
+
+
+ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper, color = installation_name, fill = installation_name)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+   # geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_line(size = 1) +
+    ggrepel::geom_text_repel(data = to_plot_base %>% group_by(installation_name) %>% 
+            filter(index == 85,
+                   mean >= 10),
+            aes(label = installation_name),
+            nudge_x = -10,
+            nudge_y = 10) +
+    labs(title = "min.segment.length = 0") +
+    xlab('Max WBGT (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 104), ylim = c(NA, 80)) +
+    theme_bw() +
+    ggtitle("Daily maximum WBGT and HSI association cumulative\nover 0-5 days lag by installation") +
+    labs(caption = "ORs relative to 60°F maximum WBGT") +
+    theme(plot.caption = element_text(hjust = 0)) 
 
 

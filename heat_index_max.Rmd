@@ -146,18 +146,18 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 100,  cen = 60, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 32, to = 120,  cen = 60, cumul = TRUE)
   # with centering value unspecified: Automatically set to 60
 
 summary(pred_dlnm)
 
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("75", "80", "85", "90")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90", "95", "100", "105", "110")]
 
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("75", "80", "85", "90")) %>% 
+  dplyr::filter(var %in% c("75", "80", "85", "90", "95", "100", "105", "110")) %>% 
   knitr::kable()
 
 
@@ -176,19 +176,26 @@ to_plot <-
   data.frame(index = pred_dlnm$predvar, 
              mean = pred_dlnm$allRRfit,
              lower = pred_dlnm$allRRlow,
-             upper = pred_dlnm$allRRhigh)
+             upper = pred_dlnm$allRRhigh) %>% 
+  filter(index <= 116)
 
 
 
 
-ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
-  geom_line(size = 1.25) +
-  xlab('Maximum Heat Index (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+plot_max_hi<-
+  ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+    geom_line(size = 1.25) +
+    xlab('Maximum Heat Index (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 116)) +
+    theme_bw() 
+
+# write_rds(plot_max_hi, file = "output/plot_max_hi.rds")
+
+
+plot_max_hi +
   ggtitle("Daily maximum Heat Index and HSI association \ncumulative over 0-5 days lag") +
   labs(caption = "ORs relative to 60°F maximum temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
@@ -199,7 +206,7 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
 plot(pred_dlnm, "slices",
      lag = 0,
      ylim = c(0, 25),
-     xlim = c(60, 120),
+     xlim = c(60, 116),
      lwd = 4,
      col = "red",
      main = "Exposure-Response Effects by Lag Day  \n  1998-2019", 
@@ -351,7 +358,7 @@ heat_index_max_nest_region <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_region
@@ -369,18 +376,25 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(region, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
+plot_max_hi_region <-
+  ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_line(size = 1.25) +
+    xlab('Maximum Heat Index (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 116), ylim = c(NA, 200)) +
+    theme_bw() 
 
-ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.1, colour = NA) +
-  geom_line(size = 1.25) +
-  xlab('Maximum Heat Index (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+
+# write_rds(plot_max_hi_region, file = "output/plot_max_hi_region.rds")
+
+
+plot_max_hi_region +
   ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
   labs(caption = "ORs relative to 60°F maximum Heat Index") +
   theme(plot.caption = element_text(hjust = 0)) 
@@ -448,7 +462,7 @@ heat_index_max_nest_service <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_service
@@ -466,7 +480,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(base_service, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
 
@@ -476,8 +491,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Maximum Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 116), ylim = c(NA, 110)) +
   theme_bw() +
   ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
   labs(caption = "ORs relative to 60°F maximum Heat Index") +
@@ -542,7 +556,7 @@ heat_index_max_nest_tis <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_tis
@@ -560,7 +574,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(`Time in season`, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
 
@@ -570,8 +585,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Maximum Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 116), ylim = c(NA, 50)) +
   theme_bw() +
   ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by time in season") +
   labs(caption = "ORs relative to 60°F maximum temperature") +
@@ -629,7 +643,7 @@ heat_index_max_nest_base <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_base
@@ -647,18 +661,25 @@ to_plot_base <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(installation_name, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
 
 ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper, color = installation_name, fill = installation_name)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
    # geom_ribbon(alpha = 0.1, colour = NA) +
-    geom_line(size = 1.25) +
+    geom_line(size = 1) +
+    ggrepel::geom_text_repel(data = to_plot_base %>% group_by(installation_name) %>% 
+            filter(index == 90,
+                   mean >= 10),
+            aes(label = installation_name),
+            nudge_x = -10,
+            nudge_y = 40) +
+    labs(title = "min.segment.length = 0") +
     xlab('Maximum Heat Index (°F)') +
     ylab('Odds Ratio') +
-    xlim(60, NA) +
-    ylim(NA, 150) +
+    coord_cartesian(xlim = c(60, 116), ylim = c(NA, 200)) +
     theme_bw() +
     ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by installation") +
     labs(caption = "ORs relative to 60°F maximum Heat Index") +

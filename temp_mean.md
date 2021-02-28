@@ -47,51 +47,6 @@ daily_indices <-
               "mcrd_beaufort_parris_island" = "parris_island",
               "mcb_quantico" = "quantico",
               "twentynine_palms_main_base" = "twentynine_palms")) 
-     
-
-
-daily_indices %>% 
-  count(installation)
-```
-
-```
-## # A tibble: 24 x 2
-## # Groups:   installation [24]
-##    installation       n
-##    <chr>          <int>
-##  1 camp_lejeune   10958
-##  2 camp_pendleton 10958
-##  3 eglin_afb      10958
-##  4 fort_benning   10958
-##  5 fort_bliss     10958
-##  6 fort_bragg     10958
-##  7 fort_campbell  10958
-##  8 fort_gordon    10958
-##  9 fort_hood      10958
-## 10 fort_jackson   10958
-## # ... with 14 more rows
-```
-
-```r
-cc_exposure_df %>% 
-  count(installation_name) 
-```
-
-```
-## # A tibble: 24 x 2
-##    installation_name     n
-##    <fct>             <int>
-##  1 fort_benning      20795
-##  2 fort_bragg        20964
-##  3 camp_lejeune      13197
-##  4 parris_island     10876
-##  5 fort_campbell      8773
-##  6 fort_polk          7466
-##  7 fort_jackson       7782
-##  8 camp_pendleton     6595
-##  9 fort_hood          5830
-## 10 mcrd_san_diego     5127
-## # ... with 14 more rows
 ```
 
 
@@ -191,7 +146,7 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 32, to = 105, cen = 60, cumul = TRUE)
 
   # centering value unspecified. Automatically set to 60
 
@@ -201,9 +156,9 @@ summary(pred_dlnm)
 
 ```
 ## PREDICTIONS:
-## values: 101 
+## values: 74 
 ## centered at: 60 
-## range: 0 , 100 
+## range: 32 , 105 
 ## lag: 0 5 
 ## exponentiated: yes 
 ## cumulative: yes 
@@ -261,26 +216,28 @@ to_plot <-
   data.frame(index = pred_dlnm$predvar, 
              mean = pred_dlnm$allRRfit,
              lower = pred_dlnm$allRRlow,
-             upper = pred_dlnm$allRRhigh)
+             upper = pred_dlnm$allRRhigh) %>% 
+  filter(index <= 98)
 
 
 
+plot_mean_temp <-
+  ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+    geom_line(size = 1.25) +
+    xlab('Mean Temperature (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 98)) +
+    theme_bw() 
 
-ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
-  geom_line(size = 1.25) +
-  xlab('Mean Temperature (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+# write_rds(plot_mean_temp, file = "output/plot_mean_temp.rds")
+
+
+plot_mean_temp +
   ggtitle("Daily mean temperature and HSI association \ncumulative over 0-5 days lag") +
   labs(caption = "ORs relative to 60°F mean temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
-```
-
-```
-## Warning: Removed 60 row(s) containing missing values (geom_path).
 ```
 
 ![](temp_mean_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
@@ -290,8 +247,8 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
 
 plot(pred_dlnm, "slices",
      lag = 0,
-     ylim = c(0, 25),
-     xlim = c(60, 100),
+     ylim = c(0, 8),
+     xlim = c(60, 98),
      lwd = 4,
      col = "red",
      main = "Exposure-Response Effects by Lag Day  \n  1998-2019", 
@@ -372,7 +329,7 @@ df_3d$OR %>% summary()
 
 ```
 ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  0.6782  0.9060  0.9576  1.1174  1.0573  5.5925
+##  0.6787  0.9439  1.0023  1.2773  1.1421  5.6501
 ```
 
 ```r
@@ -450,7 +407,7 @@ temp_mean_nest_region <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 105, cen = 60, cumul = TRUE)))
             
 
 temp_mean_nest_region
@@ -479,18 +436,24 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(region, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 98)
 
 
+plot_mean_temp_region <-
+  ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_line(size = 1.25) +
+    xlab('Mean Temperature (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 98), ylim = c(NA, 60)) +
+    theme_bw() 
 
-ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.1, colour = NA) +
-  geom_line(size = 1.25) +
-  xlab('Mean Temperature (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+# write_rds(plot_mean_temp_region, file = "output/plot_mean_temp_region.rds")
+
+
+plot_mean_temp_region +
   ggtitle("Daily mean Temperature and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
   labs(caption = "ORs relative to 60°F mean temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
@@ -581,7 +544,7 @@ temp_mean_nest_service <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 105, cen = 60, cumul = TRUE)))
             
 
 temp_mean_nest_service
@@ -610,7 +573,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(base_service, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 98)
 
 
 
@@ -620,8 +584,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Mean Temperature (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+ coord_cartesian(xlim = c(60, 98), ylim = c(NA, 200)) +
   theme_bw() +
   ggtitle("Daily mean temperature and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
   labs(caption = "ORs relative to 60°F mean temperature") +
@@ -709,7 +672,7 @@ temp_mean_nest_tis <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 105, cen = 60, cumul = TRUE)))
             
 
 temp_mean_nest_tis
@@ -736,7 +699,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(`Time in season`, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 98)
 
 
 
@@ -746,8 +710,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Mean Temperature (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 98)) +
   theme_bw() +
   ggtitle("Daily mean temperature and HSI association cumulative\nover 0-5 days lag by time in season") +
   labs(caption = "ORs relative to 60°F mean temperature") +
@@ -828,7 +791,7 @@ temp_mean_nest_base <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 105, cen = 60, cumul = TRUE)))
             
 
 temp_mean_nest_base
@@ -864,18 +827,25 @@ to_plot_base <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(installation_name, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 98)
 
 
 
 ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper, color = installation_name, fill = installation_name)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
    # geom_ribbon(alpha = 0.1, colour = NA) +
-    geom_line(size = 1.25) +
+    geom_line(size = 1) +
+    ggrepel::geom_text_repel(data = to_plot_base %>% group_by(installation_name) %>% 
+            filter(index == 85,
+                   mean >= 10),
+            aes(label = installation_name),
+            nudge_x = -10,
+            nudge_y = 10) +
+    labs(title = "min.segment.length = 0") +
     xlab('Mean Temperature (°F)') +
     ylab('Odds Ratio') +
-    xlim(60, NA) +
-    ylim(NA, 150) +
+    coord_cartesian(xlim = c(60, 98), ylim = c(NA, 150)) +
     theme_bw() +
     ggtitle("Daily mean temperature and HSI association cumulative\nover 0-5 days lag by installation") +
     labs(caption = "ORs relative to 60°F mean temperature") +

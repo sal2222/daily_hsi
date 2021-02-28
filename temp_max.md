@@ -192,7 +192,7 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 115, cen = 60, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)
   # when run with centering value unspecified: Automatically set to 60 
 
 summary(pred_dlnm)
@@ -200,9 +200,9 @@ summary(pred_dlnm)
 
 ```
 ## PREDICTIONS:
-## values: 116 
+## values: 89 
 ## centered at: 60 
-## range: 0 , 115 
+## range: 32 , 120 
 ## lag: 0 5 
 ## exponentiated: yes 
 ## cumulative: yes 
@@ -261,26 +261,29 @@ to_plot <-
   data.frame(index = pred_dlnm$predvar, 
              mean = pred_dlnm$allRRfit,
              lower = pred_dlnm$allRRlow,
-             upper = pred_dlnm$allRRhigh)
+             upper = pred_dlnm$allRRhigh) %>% 
+  filter(index <= 112)
 
 
 
+plot_max_temp <-
+  ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+    geom_line(size = 1.25) +
+    xlab('Max Temperature (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 112)) +
+    theme_bw()
 
-ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
-  geom_line(size = 1.25) +
-  xlab('Max Temperature (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+
+write_rds(plot_max_temp, file = "output/plot_max_temp.rds")
+
+
+plot_max_temp +
   ggtitle("Daily maximum temperature and HSI association \ncumulative over 0-5 days lag") +
   labs(caption = "ORs relative to 60°F max temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
-```
-
-```
-## Warning: Removed 60 row(s) containing missing values (geom_path).
 ```
 
 ![](temp_max_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
@@ -290,7 +293,7 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
 
 plot(pred_dlnm, "slices",
      lag = 0,
-     ylim = c(0, 25),
+     ylim = c(0, 5),
      xlim = c(60, 115),
      lwd = 4,
      col = "red",
@@ -372,7 +375,7 @@ df_3d$OR %>% summary()
 
 ```
 ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  0.8750  0.9606  1.0219  1.1809  1.1506  3.8807
+##  0.8750  0.9906  1.0811  1.2966  1.2512  3.8807
 ```
 
 ```r
@@ -380,7 +383,7 @@ df_3d$OR %>% summary()
 
 gg_3d <-
   df_3d %>% 
-  filter(`Max Temperature` >= 50) %>% 
+  filter(`Max Temperature` >= 60) %>% 
   ggplot() +
     geom_raster(aes(x = `Max Temperature`, y = `Lag`, fill = `OR`)) +
     scale_fill_viridis()
@@ -391,15 +394,15 @@ plot_gg(gg_3d, multicore = TRUE, width = 5, height = 5, scale = 250)
 
 # Render 3D movie
 
-# filename_movie <- "output/mean_temp_3d.mp4"
+# filename_movie <- "output/max_temp_3d.mp4"
 # 
 # render_movie(filename = filename_movie, type = "orbit", 
 #              frames = 360,  phi = 30, zoom = 0.8, theta = -90,
-#              title_text = "Mean Temperature Odds Ratio")
+#              title_text = "Max Temperature Odds Ratio")
 
 
 # 3D print file
-#filename_stl = "output/mean_temp_3d.stl"
+#filename_stl = "output/max_temp_3d.stl"
 #save_3dprint(filename_stl, rotate = TRUE)
 ```
 
@@ -449,7 +452,7 @@ temp_max_nest_region <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 115, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 temp_max_nest_region
@@ -478,18 +481,25 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(region, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 112)
 
 
 
-ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.1, colour = NA) +
-  geom_line(size = 1.25) +
-  xlab('Max Temperature (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+plot_max_temp_region <-
+  ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_line(size = 1.25) +
+    xlab('Max Temperature (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 112), ylim = c(NA, 125)) +
+    theme_bw()
+
+
+write_rds(plot_max_temp_region, file = "output/plot_max_temp_region.rds")
+
+plot_max_temp_region +
   ggtitle("Daily maximum Temperature and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
   labs(caption = "ORs relative to 60°F maximum temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
@@ -581,7 +591,7 @@ temp_max_nest_service <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 115, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 temp_max_nest_service
@@ -610,7 +620,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(base_service, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 112)
 
 
 
@@ -620,8 +631,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Max Temperature (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 112), ylim = c(NA, 200)) +
   theme_bw() +
   ggtitle("Daily maximum temperature and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
   labs(caption = "ORs relative to 60°F maximum temperature") +
@@ -674,7 +684,7 @@ bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pre
 1st look: pre vs post 4th of July 
 days 0-185 (early season) vs days 186-366 (late season) 
 
-  mutate(`Day of Year` = lubridate::yday(date))
+
 
 ```r
 # join lag matrix to case-crossover dataframe
@@ -710,7 +720,7 @@ temp_max_nest_tis <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 115, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 temp_max_nest_tis
@@ -737,7 +747,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(`Time in season`, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 112)
 
 
 
@@ -747,8 +758,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Max Temperature (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 112)) +
   theme_bw() +
   ggtitle("Daily maximum temperature and HSI association cumulative\nover 0-5 days lag by time in season") +
   labs(caption = "ORs relative to 60°F maximum temperature") +
@@ -830,7 +840,7 @@ temp_max_nest_base <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 115, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 temp_max_nest_base
@@ -866,18 +876,25 @@ to_plot_base <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(installation_name, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 112)
 
 
 
 ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper, color = installation_name, fill = installation_name)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
    # geom_ribbon(alpha = 0.1, colour = NA) +
-    geom_line(size = 1.25) +
+     geom_line(size = 1) +
+     ggrepel::geom_text_repel(data = to_plot_base %>% group_by(installation_name) %>% 
+            filter(index == 90,
+                   mean >= 10),
+            aes(label = installation_name),
+            nudge_x = -10,
+            nudge_y = 60) +
+    labs(title = "min.segment.length = 0") +
     xlab('Max Temperature (°F)') +
     ylab('Odds Ratio') +
-    xlim(60, NA) +
-    ylim(NA, 150) +
+    coord_cartesian(xlim = c(60, 112), ylim = c(NA, 200)) +
     theme_bw() +
     ggtitle("Daily maximum temperature and HSI association cumulative\nover 0-5 days lag by installation") +
     labs(caption = "ORs relative to 60°F maximum temperature") +

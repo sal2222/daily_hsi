@@ -191,7 +191,7 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 0, to = 100,  cen = 60, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 32, to = 120,  cen = 60, cumul = TRUE)
   # with centering value unspecified: Automatically set to 60
 
 summary(pred_dlnm)
@@ -199,9 +199,9 @@ summary(pred_dlnm)
 
 ```
 ## PREDICTIONS:
-## values: 101 
+## values: 89 
 ## centered at: 60 
-## range: 0 , 100 
+## range: 32 , 120 
 ## lag: 0 5 
 ## exponentiated: yes 
 ## cumulative: yes 
@@ -215,18 +215,18 @@ summary(pred_dlnm)
 ```r
 ## Overall effect RRs
 
-pred_dlnm$allRRfit[c("75", "80", "85", "90")]
+pred_dlnm$allRRfit[c("75", "80", "85", "90", "95", "100", "105", "110")]
 ```
 
 ```
-##       75       80       85       90 
-## 2.151100 3.050679 4.116039 4.940101
+##        75        80        85        90        95       100       105       110 
+##  2.151100  3.050679  4.116039  4.940101  6.771157 10.258212 14.160570 18.115115
 ```
 
 ```r
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
-  dplyr::filter(var %in% c("75", "80", "85", "90")) %>% 
+  dplyr::filter(var %in% c("75", "80", "85", "90", "95", "100", "105", "110")) %>% 
   knitr::kable()
 ```
 
@@ -240,12 +240,16 @@ bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pre
 
 
 
-|var |       rr|   ci_low|  ci_high|
-|:---|--------:|--------:|--------:|
-|75  | 2.151100| 1.995309| 2.319054|
-|80  | 3.050679| 2.733424| 3.404757|
-|85  | 4.116039| 3.622603| 4.676686|
-|90  | 4.940101| 4.370029| 5.584539|
+|var |        rr|    ci_low|   ci_high|
+|:---|---------:|---------:|---------:|
+|75  |  2.151100|  1.995309|  2.319054|
+|80  |  3.050679|  2.733424|  3.404757|
+|85  |  4.116039|  3.622603|  4.676686|
+|90  |  4.940101|  4.370029|  5.584539|
+|95  |  6.771157|  5.996279|  7.646169|
+|100 | 10.258212|  8.992852| 11.701618|
+|105 | 14.160569| 12.360595| 16.222660|
+|110 | 18.115115| 15.064535| 21.783439|
 
 
 ## Plot model (ggplot)
@@ -259,26 +263,29 @@ to_plot <-
   data.frame(index = pred_dlnm$predvar, 
              mean = pred_dlnm$allRRfit,
              lower = pred_dlnm$allRRlow,
-             upper = pred_dlnm$allRRhigh)
+             upper = pred_dlnm$allRRhigh) %>% 
+  filter(index <= 116)
 
 
 
 
-ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
-  geom_line(size = 1.25) +
-  xlab('Maximum Heat Index (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+plot_max_hi<-
+  ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+    geom_line(size = 1.25) +
+    xlab('Maximum Heat Index (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 116)) +
+    theme_bw() 
+
+# write_rds(plot_max_hi, file = "output/plot_max_hi.rds")
+
+
+plot_max_hi +
   ggtitle("Daily maximum Heat Index and HSI association \ncumulative over 0-5 days lag") +
   labs(caption = "ORs relative to 60°F maximum temperature") +
   theme(plot.caption = element_text(hjust = 0)) 
-```
-
-```
-## Warning: Removed 60 row(s) containing missing values (geom_path).
 ```
 
 ![](heat_index_max_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
@@ -289,7 +296,7 @@ ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
 plot(pred_dlnm, "slices",
      lag = 0,
      ylim = c(0, 25),
-     xlim = c(60, 120),
+     xlim = c(60, 116),
      lwd = 4,
      col = "red",
      main = "Exposure-Response Effects by Lag Day  \n  1998-2019", 
@@ -370,7 +377,7 @@ df_3d$OR %>% summary()
 
 ```
 ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  0.8491  0.9268  1.0000  1.0672  1.0838  3.5077
+##  0.8868  0.9829  1.0541  1.3303  1.1719  8.1114
 ```
 
 ```r
@@ -448,7 +455,7 @@ heat_index_max_nest_region <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_region
@@ -477,18 +484,25 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(region, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
+plot_max_hi_region <-
+  ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_line(size = 1.25) +
+    xlab('Maximum Heat Index (°F)') +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(60, 116), ylim = c(NA, 200)) +
+    theme_bw() 
 
-ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
-  geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-  geom_ribbon(alpha = 0.1, colour = NA) +
-  geom_line(size = 1.25) +
-  xlab('Maximum Heat Index (°F)') +
-  ylab('Odds Ratio') +
-  xlim(60, NA) +
-  theme_bw() +
+
+# write_rds(plot_max_hi_region, file = "output/plot_max_hi_region.rds")
+
+
+plot_max_hi_region +
   ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by NOAA NCEI climate region") +
   labs(caption = "ORs relative to 60°F maximum Heat Index") +
   theme(plot.caption = element_text(hjust = 0)) 
@@ -579,7 +593,7 @@ heat_index_max_nest_service <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_service
@@ -608,7 +622,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(base_service, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
 
@@ -618,8 +633,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Maximum Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 116), ylim = c(NA, 110)) +
   theme_bw() +
   ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by installation primary service branch") +
   labs(caption = "ORs relative to 60°F maximum Heat Index") +
@@ -707,7 +721,7 @@ heat_index_max_nest_tis <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_tis
@@ -734,7 +748,8 @@ to_plot_region <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(`Time in season`, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
 
@@ -744,8 +759,7 @@ ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = uppe
   geom_line(size = 1.25) +
   xlab('Maximum Heat Index (°F)') +
   ylab('Odds Ratio') +
-  xlim(60, NA) +
-  ylim(NA, 200) +
+  coord_cartesian(xlim = c(60, 116), ylim = c(NA, 50)) +
   theme_bw() +
   ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by time in season") +
   labs(caption = "ORs relative to 60°F maximum temperature") +
@@ -826,7 +840,7 @@ heat_index_max_nest_base <-
                     data =  .y)),
             pred_dlnm = 
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = 1, from = 0, to = 100, cen = 60, cumul = TRUE)))
+                .x, .y, by = 1, from = 32, to = 120, cen = 60, cumul = TRUE)))
             
 
 heat_index_max_nest_base
@@ -862,18 +876,25 @@ to_plot_base <-
                       lower = .x$allRRlow,
                       upper = .x$allRRhigh))) %>% 
     dplyr::select(installation_name, to_plot) %>% 
-      unnest(to_plot)
+      unnest(to_plot) %>% 
+  filter(index <= 116)
 
 
 
 ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper, color = installation_name, fill = installation_name)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
    # geom_ribbon(alpha = 0.1, colour = NA) +
-    geom_line(size = 1.25) +
+    geom_line(size = 1) +
+    ggrepel::geom_text_repel(data = to_plot_base %>% group_by(installation_name) %>% 
+            filter(index == 85,
+                   mean >= 10),
+            aes(label = installation_name),
+            nudge_x = -10,
+            nudge_y = 10) +
+    labs(title = "min.segment.length = 0") +
     xlab('Maximum Heat Index (°F)') +
     ylab('Odds Ratio') +
-    xlim(60, NA) +
-    ylim(NA, 150) +
+    coord_cartesian(xlim = c(60, 116), ylim = c(NA, 200)) +
     theme_bw() +
     ggtitle("Daily maximum Heat Index and HSI association cumulative\nover 0-5 days lag by installation") +
     labs(caption = "ORs relative to 60°F maximum Heat Index") +

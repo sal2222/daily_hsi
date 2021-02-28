@@ -19,7 +19,6 @@ library(dlnm)
 library(survival)
 library(splines)
 library(broom)
-library(plotly)
 library(weathermetrics)
 library(viridis)
 library(reshape2)
@@ -392,7 +391,7 @@ plot_mean_wbgt_region <-
     geom_line(size = 1.25) +
     xlab('Mean WBGT (°F)') +
     ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(60, 86)) +
+    coord_cartesian(xlim = c(60, 86), ylim = c(NA, 25)) +
     theme_bw() 
 
 # write_rds(plot_mean_wbgt_region, file = "output/plot_mean_wbgt_region.rds")

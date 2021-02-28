@@ -1394,7 +1394,7 @@ to_density_plot %>%
 
 ```r
 ## Day of year
-
+  # density plot
 cc_exposure_df %>%
   filter(case == 1) %>% 
   dplyr::select(installation_name, date) %>% 
@@ -1408,6 +1408,7 @@ cc_exposure_df %>%
 ![](descriptive_files/figure-html/unnamed-chunk-7-3.png)<!-- -->
 
 ```r
+  # bar plot
 cc_exposure_df %>%
   filter(case == 1) %>% 
   dplyr::select(installation_name, date) %>% 
@@ -1419,6 +1420,24 @@ cc_exposure_df %>%
 ```
 
 ![](descriptive_files/figure-html/unnamed-chunk-7-4.png)<!-- -->
+
+```r
+## Day of year - by year
+
+
+cc_exposure_df %>%
+  filter(case == 1) %>% 
+  dplyr::select(installation_name, date) %>% 
+  mutate(`Day of Year` = lubridate::yday(date),
+         Year = as_factor(lubridate::year(date))) %>% 
+  ggplot(aes(x = `Day of Year`, group = Year, color = Year)) +
+  geom_density(fill = NA) +
+  theme_bw() +
+  labs(title = "Day of year for HSI case days, 1998-2019") +
+  scale_color_viridis(discrete = TRUE, option = "D")
+```
+
+![](descriptive_files/figure-html/unnamed-chunk-7-5.png)<!-- -->
 
 ## Temperature indices
 
@@ -1464,6 +1483,7 @@ to_density_plot %>%
             SD = sd(Value),
             `75th` = quantile(Value, .75),
             `95th` = quantile(Value, .95),
+            max = max(Value),
             IQR = IQR(Value)) %>% 
   knitr::kable()
 ```
@@ -1474,10 +1494,56 @@ to_density_plot %>%
 
 
 
-|Index     |     Mean|       SD|     75th|      95th|      IQR|
-|:---------|--------:|--------:|--------:|---------:|--------:|
-|Max Temp  | 85.38130| 12.28294| 92.86000| 101.66000| 11.95000|
-|Mean Temp | 76.54029| 11.45315| 83.92958|  89.44777| 12.45052|
+|Index     |     Mean|       SD|     75th|      95th|       max|      IQR|
+|:---------|--------:|--------:|--------:|---------:|---------:|--------:|
+|Max Temp  | 85.38130| 12.28294| 92.86000| 101.66000| 113.32000| 11.95000|
+|Mean Temp | 76.54029| 11.45315| 83.92958|  89.44777|  99.33708| 12.45052|
+
+### Density plots - formatted to plot all indices together
+
+```r
+to_density_plot_all <-
+  cc_exposure_df %>%
+    filter(case == 1) %>% 
+    dplyr::select(installation_name, d_event, tmp_f_mean, tmp_f_max,
+                  heat_index_mean, heat_index_max,
+                  wbgt_mean, wbgt_max) %>%
+   pivot_longer(-c(installation_name, d_event), names_to = "Index", values_to = "Value") %>% 
+    mutate(index = 
+           case_when(
+                   Index %in% c("tmp_f_mean", "tmp_f_max") ~ "Temperature",
+      Index %in% c("heat_index_mean", "heat_index_max")    ~ "Heat Index",
+      Index %in% c("wbgt_mean", "wbgt_max")                  ~ "WBGT"),
+          type = 
+           case_when(
+                   Index %in% c("tmp_f_mean", "heat_index_mean", "wbgt_mean") ~ "Mean",
+      Index %in% c("tmp_f_max", "heat_index_max", "wbgt_max")    ~ "Max"),
+      index = fct_relevel(index, "Temperature", "Heat Index", "WBGT"),
+      type = fct_relevel(type, "Max", "Mean")
+    ) 
+  
+  
+to_density_plot_all %>%   
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      facet_wrap(~index) +
+      geom_density(alpha = 0.5) +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily Index Value (°F)") +
+      theme(strip.text.x = element_text(
+            size = 12, face = "bold"),
+        legend.position = "bottom") +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 20))
+```
+
+![](descriptive_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+```r
+#title = "Density plot of daily indices on all case days, 1998-2019"
+```
+
+
+
 
 
 
@@ -1716,14 +1782,36 @@ ggplot(data = usa) +
     coord_sf(xlim = c(-130, -65), ylim = c(24.5, 50), expand = FALSE) +
     ggtitle("Study Installations", subtitle = "(n=24)") +
     theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
-        size = 0.5), panel.background = element_rect(fill = "azure2"))
+        size = 0.5), panel.background = element_rect(fill = "azure2")) +
+    theme(legend.position = "bottom")
 ```
 
-![](descriptive_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](descriptive_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 ```r
 # ggsave("output/study_map.png")
+
+
+# Zoomed-in map
+
+ggplot(data = usa) +
+    geom_sf() +
+    geom_sf(data = states, fill = "cornsilk") + 
+    geom_point(data = sites, aes(x = longitude, y = latitude, fill = service), size = 4, 
+        shape = 23) +
+    geom_sf(data = sites) +
+    geom_text_repel(data = sites, aes(x = longitude, y = latitude, label = names), fontface = "bold", size = 3,
+                    nudge_y = 1) +
+    labs(title = "min.segment.length = 0") +
+    coord_sf(xlim = c(-124, -72), ylim = c(25, 43), expand = FALSE) +
+    ggtitle("Study Installations", subtitle = "(n=24)") +
+    theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
+        size = 0.5), panel.background = element_rect(fill = "azure2")) +
+    theme(panel.border = element_rect(colour = "black", fill = NA, size = 1),
+          legend.position = "bottom")
 ```
+
+![](descriptive_files/figure-html/unnamed-chunk-11-2.png)<!-- -->
 
 
 

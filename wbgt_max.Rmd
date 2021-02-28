@@ -20,7 +20,6 @@ library(dlnm)
 library(survival)
 library(splines)
 library(broom)
-library(plotly)
 library(weathermetrics)
 library(viridis)
 library(reshape2)
@@ -391,7 +390,7 @@ plot_max_wbgt_region <-
     geom_line(size = 1.25) +
     xlab('Max WBGT (°F)') +
     ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(60, 104)) +
+    coord_cartesian(xlim = c(60, 104), ylim = c(NA, 20)) +
     theme_bw() 
 
 # write_rds(plot_max_wbgt_region, file = "output/plot_max_wbgt_region.rds")

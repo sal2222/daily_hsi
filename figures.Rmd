@@ -1,0 +1,108 @@
+---
+title: "figures"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(plotly)
+library(viridis)
+library(ggrepel)
+library(gridExtra)
+library(patchwork)
+```
+
+
+## Overall OR plots
+```{r}
+
+# Read in ggplot objects
+
+plot_mean_temp <-
+  read_rds("output/plot_mean_temp.rds")
+
+plot_max_temp <-
+  read_rds("output/plot_max_temp.rds")
+
+plot_mean_hi <-
+  read_rds("output/plot_mean_hi.rds")
+
+plot_max_hi <-
+  read_rds("output/plot_max_hi.rds")
+
+plot_mean_wbgt <-
+  read_rds("output/plot_mean_wbgt.rds")
+
+plot_max_wbgt <-
+  read_rds("output/plot_max_wbgt.rds")
+
+```
+
+
+
+```{r}
+
+# gridExtra
+gridExtra::grid.arrange(plot_mean_temp, plot_mean_hi, plot_mean_wbgt, 
+                        plot_max_temp, plot_max_hi, plot_max_wbgt, nrow = 2, ncol = 3)
+
+
+
+# patchwork
+
+(plot_mean_temp | plot_mean_hi | plot_mean_wbgt) / 
+(plot_max_temp | plot_max_hi | plot_max_wbgt)
+
+
+  # Tagging: https://patchwork.data-imaginist.com/articles/guides/annotation.html
+
+(plot_mean_temp | plot_mean_hi | plot_mean_wbgt) / 
+(plot_max_temp | plot_max_hi | plot_max_wbgt) + plot_annotation(tag_levels = 'A')
+
+```
+
+
+
+
+## Overall OR plots by Region
+```{r}
+
+# Read in ggplot objects
+
+plot_mean_temp_region <-
+  read_rds("output/plot_mean_temp_region.rds")
+
+plot_max_temp_region <-
+  read_rds("output/plot_max_temp_region.rds")
+
+plot_mean_hi_region <-
+  read_rds("output/plot_mean_hi_region.rds")
+
+plot_max_hi_region <-
+  read_rds("output/plot_max_hi_region.rds")
+
+plot_mean_wbgt_region <-
+  read_rds("output/plot_mean_wbgt_region.rds")
+
+plot_max_wbgt_region <-
+  read_rds("output/plot_max_wbgt_region.rds")
+
+```
+
+
+
+```{r}
+
+gridExtra::grid.arrange(plot_mean_temp_region, plot_mean_hi_region, plot_mean_wbgt_region, 
+                        plot_max_temp_region, plot_max_hi_region, plot_max_wbgt_region,
+                        nrow = 2, ncol = 3)
+
+
+(plot_mean_temp_region | plot_mean_hi_region | plot_mean_wbgt_region) / 
+(plot_max_temp_region | plot_max_hi_region | plot_max_wbgt_region) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = "bottom")
+
+```

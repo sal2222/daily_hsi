@@ -19,7 +19,6 @@ library(dlnm)
 library(survival)
 library(splines)
 library(broom)
-library(plotly)
 library(weathermetrics)
 library(viridis)
 library(reshape2)
@@ -182,14 +181,15 @@ to_plot <-
 
 
 
-plot_max_hi<-
+plot_max_hi <-
   ggplot(data = to_plot, aes(x = index, y = mean, ymin = lower, ymax = upper)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
     geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
     geom_line(size = 1.25) +
-    xlab('Maximum Heat Index (°F)') +
+    xlab('Max Heat Index (°F)') +
     ylab('Odds Ratio') +
     coord_cartesian(xlim = c(60, 116)) +
+    scale_x_continuous(breaks = seq(from = 60, to = 110, by = 10)) +
     theme_bw() 
 
 # write_rds(plot_max_hi, file = "output/plot_max_hi.rds")
@@ -385,9 +385,10 @@ plot_max_hi_region <-
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
     geom_ribbon(alpha = 0.1, colour = NA) +
     geom_line(size = 1.25) +
-    xlab('Maximum Heat Index (°F)') +
+    xlab('Max Heat Index (°F)') +
     ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(60, 116), ylim = c(NA, 200)) +
+    coord_cartesian(xlim = c(60, 116), ylim = c(NA, 150)) +
+    scale_x_continuous(breaks = seq(from = 60, to = 110, by = 10)) +
     theme_bw() 
 
 

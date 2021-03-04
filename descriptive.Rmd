@@ -33,7 +33,7 @@ library(ggrepel)
 library(GGally)
 library(fitdistrplus)
 library(viridis)
-
+library(janitor)
 ```
 
 
@@ -232,6 +232,54 @@ table1::table1(~ service + region + race_ethnic | source, data = to_table1)
 
 table1::table1(~ factor(hsi) + factor(age) + factor(sex) + 
                factor(race_ethnic) + factor(grade) | factor(source), data = to_table1)
+
+
+
+
+# Alternate Table 1 (Cases and Controls)
+
+
+to_table1 <-
+  cc_exposure_df %>% 
+    dplyr::select(installation_name, case, source, age, sex, race_ethnic, service, grade, hsi) %>% 
+       mutate(service = recode(service,
+            "A" = "Army",
+            "C" = "Coast Guard",
+            "F" = "Air Force",
+            "M" = "Marine Corps",
+            "N" = "Navy"),
+            source = recode(source,
+            "INPATIENT" = "In-Patient",
+            "OUTPATIENT" = "Out-Patient",
+            "RME" = "Reportable Event"),
+            hsi = recode(hsi,
+            "heat_exhaustion" = "Heat Exhaustion",
+            "heat_stroke" = "Heat Stroke"),
+            sex = recode(sex,
+            "F" = "Female",
+            "M" = "Male",
+            "Z" = "Unknown"),
+            case = as_factor(case),
+            case = recode(case,
+                          "0" = "Control",
+                          "1" = "Case")
+                      ) %>% 
+  left_join(climate_regions %>% 
+              mutate(installation_name = janitor::make_clean_names(installation_name)),
+            by = "installation_name") %>% 
+  mutate_if(is.character, as.factor) %>% 
+            mutate(age = fct_relevel(age, ">=40", after = Inf))
+
+
+label(to_table1$hsi) <- "HSI Diagnosis"
+label(to_table1$service) <- "Service Branch"
+label(to_table1$region) <- "NOAA NCEI Climate Region"
+label(to_table1$case) <- "Case Status"
+label(to_table1$source) <- "Encounter Type"
+
+table1::table1(~ hsi + source + service + region | case, data = to_table1)
+
+
 
 
 
@@ -500,6 +548,8 @@ to_density_plot %>%
 
 to_density_plot_all <-
   cc_exposure_df %>%
+     mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max)) %>% 
     filter(case == 1) %>% 
     dplyr::select(installation_name, d_event, tmp_f_mean, tmp_f_max,
                   heat_index_mean, heat_index_max,
@@ -536,6 +586,49 @@ to_density_plot_all %>%
 
 ```
 
+
+## Summary table: All Indices
+```{r}
+
+to_index_table <-
+  cc_exposure_df %>%
+     mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max)) %>% 
+    filter(case == 1) %>% 
+    dplyr::select(installation_name, d_event, tmp_f_mean, tmp_f_max,
+                  heat_index_mean, heat_index_max,
+                  wbgt_mean, wbgt_max) %>%
+   pivot_longer(-c(installation_name, d_event), names_to = "Index", values_to = "Value") %>% 
+    mutate(index = 
+           case_when(
+                   Index %in% c("tmp_f_mean", "tmp_f_max") ~ "Temperature",
+      Index %in% c("heat_index_mean", "heat_index_max")    ~ "Heat Index",
+      Index %in% c("wbgt_mean", "wbgt_max")                  ~ "WBGT"),
+          type = 
+           case_when(
+                   Index %in% c("tmp_f_mean", "heat_index_mean", "wbgt_mean") ~ "Mean",
+      Index %in% c("tmp_f_max", "heat_index_max", "wbgt_max")    ~ "Max"),
+      index = fct_relevel(index, "Temperature", "Heat Index", "WBGT"),
+      type = fct_relevel(type, "Max", "Mean"),
+      index_name = paste(index, type, sep = "-")
+    ) %>% 
+  dplyr::select(installation_name, index_name, Value) %>%
+  group_by(index_name) %>% 
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from = index_name, values_from = Value) %>%
+  dplyr::select(-row)
+  
+  
+
+
+table1::table1(~ `Temperature-Mean` + `Temperature-Max` + `Heat Index-Mean` +
+               `Heat Index-Max` + `WBGT-Mean` + `WBGT-Max`, data = to_index_table)
+  
+  
+    
+  knitr::kable()
+
+```
 
 
 

@@ -7,31 +7,12 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 
-library(tidyverse)
-library(plotly)
-library(lattice)
-#remotes::install_github("tylermorganwall/rayshader")
-library(rayshader)
-library(dlnm)
-library(survival)
-library(splines)
-library(broom)
-library(weathermetrics)
-library(viridis)
-library(reshape2)
-library(magick)
-library(av)
-library(ggrepel)
-
-```
 
 ## Input data
 
-```{r}
 
+```r
 cc_exposure_df <-
   read_rds(file = "data/cc_exposure_df.rds") 
 
@@ -67,15 +48,14 @@ daily_indices <-
               "mcrd_beaufort_parris_island" = "parris_island",
               "mcb_quantico" = "quantico",
               "twentynine_palms_main_base" = "twentynine_palms")) 
-     
 ```
 
 
 
 ## Inputs
 
-```{r}
 
+```r
 selected_index <- "wbgt_mean"
 
 # crossbasis options
@@ -101,8 +81,13 @@ set_max_temp <- case_when(
     )
 
 set_max_temp
+```
 
+```
+## [1] 90
+```
 
+```r
 # set max plot index value (approximate, or rounded-down from max value in dataset)
 set_max_plot_value <- case_when(
   selected_index %in% "wbgt_mean" ~ 86,
@@ -114,8 +99,13 @@ set_max_plot_value <- case_when(
     )
 
 set_max_plot_value
+```
 
+```
+## [1] 86
+```
 
+```r
 print_index <- case_when(
   selected_index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
   selected_index %in% "wbgt_max" ~ "Max WBGT (°F)",
@@ -127,15 +117,16 @@ print_index <- case_when(
 
 
 print_index
+```
 
-
-
+```
+## [1] "Mean WBGT (°F)"
 ```
 
 
 ## Lag function
-```{r}
 
+```r
 # DLNM
 ## Lags function
 
@@ -145,13 +136,13 @@ lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"),
   sep = "_")
 
 lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
-
 ```
 
 
 ## Create lag matrix for selected index; join to case-crossover dataframe
 
-```{r, warning = FALSE}
+
+```r
  # create lag matrix
 
 lag_matrix <-
@@ -161,8 +152,16 @@ lag_matrix <-
    group_by(installation) %>% 
    mutate_at(vars(selected_index), funs_(lag_fun)
   )
+```
 
+```
+## Note: Using an external vector in selections is ambiguous.
+## i Use `all_of(selected_index)` instead of `selected_index` to silence this message.
+## i See <https://tidyselect.r-lib.org/reference/faq-external-vector.html>.
+## This message is displayed once per session.
+```
 
+```r
 # join lag matrix to case-crossover dataframe
 
 cc_lag_matrix <-
@@ -180,9 +179,8 @@ cc_lag_only <-
 
 ## Define DLNM cross-basis
 
-```{r, warning = FALSE}
 
- 
+```r
 # Define dlnm cross-basis (penalized splines)
 
 index_cb <-
@@ -193,7 +191,29 @@ index_cb <-
       arglag = list(fun = "ns", df = set_lag_df))    #  functional form of the lags
 
 summary(index_cb)
+```
 
+```
+## CROSSBASIS FUNCTIONS
+## observations: 139875 
+## range: 1.81 to 88.05 
+## lag period: 0 5 
+## total df:  20 
+## 
+## BASIS FOR VAR:
+## fun: ns 
+## knots: 63.42 70.49 76.25 79.53 
+## intercept: FALSE 
+## Boundary.knots: 1.81 88.05 
+## 
+## BASIS FOR LAG:
+## fun: ns 
+## knots: 1.666667 3.333333 
+## intercept: TRUE 
+## Boundary.knots: 0 5
+```
+
+```r
 # run model and get prediction for selected_index
 
 
@@ -208,18 +228,38 @@ pred_dlnm <- crosspred(index_cb, index_dlnm, by = set_increment, from = set_min_
 
 
 summary(pred_dlnm)
+```
 
+```
+## PREDICTIONS:
+## values: 59 
+## centered at: 60 
+## range: 32 , 90 
+## lag: 0 5 
+## exponentiated: yes 
+## cumulative: yes 
+## 
+## MODEL:
+## parameters: 20 
+## class: clogit coxph 
+## link: logit
 ```
 
 ## Odds ratio table 
 (Relative to centered value)
 
-```{r}
 
+```r
 # pull designated values
 pred_dlnm$allRRfit[c("74", "78", "80", "82", "84", "86")]
+```
 
+```
+##        74        78        80        82        84        86 
+##  2.472203  4.098449  5.940916  8.490687 11.931825 16.579337
+```
 
+```r
 # full range
   # allRRfit: vector of exponentiated overall cumulative associations from allfit.
 
@@ -231,17 +271,57 @@ assign(paste0("or_table_", selected_index),
     dplyr::filter(var %in% c(set_centered:set_max_plot_value))
   
 )
+```
 
+```
+## New names:
+## * NA -> ...1
+## * NA -> ...2
+## * NA -> ...3
+## * NA -> ...4
+```
 
+```r
 eval(parse(text = paste0("or_table_", selected_index))) %>% 
   knitr::kable()
-
 ```
 
 
-## Plot model (ggplot)
-```{r}
 
+|var |        rr|    ci_low|   ci_high|index     |
+|:---|---------:|---------:|---------:|:---------|
+|60  |  1.000000|  1.000000|  1.000000|wbgt_mean |
+|61  |  1.067737|  1.059500|  1.076038|wbgt_mean |
+|62  |  1.142786|  1.124616|  1.161250|wbgt_mean |
+|63  |  1.226083|  1.195951|  1.256974|wbgt_mean |
+|64  |  1.318633|  1.274146|  1.364674|wbgt_mean |
+|65  |  1.420397|  1.359301|  1.484238|wbgt_mean |
+|66  |  1.530081|  1.450889|  1.613595|wbgt_mean |
+|67  |  1.645765|  1.548060|  1.749637|wbgt_mean |
+|68  |  1.764816|  1.649492|  1.888203|wbgt_mean |
+|69  |  1.883815|  1.753141|  2.024228|wbgt_mean |
+|70  |  1.998543|  1.855805|  2.152260|wbgt_mean |
+|71  |  2.104486|  1.952668|  2.268107|wbgt_mean |
+|72  |  2.206771|  2.044959|  2.381387|wbgt_mean |
+|73  |  2.322305|  2.145019|  2.514243|wbgt_mean |
+|74  |  2.472203|  2.272962|  2.688909|wbgt_mean |
+|75  |  2.683519|  2.457548|  2.930267|wbgt_mean |
+|76  |  2.993871|  2.737954|  3.273709|wbgt_mean |
+|77  |  3.455224|  3.162358|  3.775212|wbgt_mean |
+|78  |  4.098449|  3.746443|  4.483529|wbgt_mean |
+|79  |  4.931223|  4.486834|  5.419626|wbgt_mean |
+|80  |  5.940916|  5.382156|  6.557684|wbgt_mean |
+|81  |  7.119756|  6.436441|  7.875614|wbgt_mean |
+|82  |  8.490687|  7.645722|  9.429032|wbgt_mean |
+|83  | 10.082986|  8.969124| 11.335176|wbgt_mean |
+|84  | 11.931825| 10.352550| 13.752017|wbgt_mean |
+|85  | 14.079869| 11.768965| 16.844534|wbgt_mean |
+|86  | 16.579337| 13.224219| 20.785682|wbgt_mean |
+
+
+## Plot model (ggplot)
+
+```r
 # As ggplot
   # https://www.rdocumentation.org/packages/season/versions/0.3.8/vignettes/season-vignette.Rmd link assisted with example "Plot of the temperature and death association averaging over all lags"
 
@@ -276,15 +356,15 @@ eval(parse(text = paste0("plot_", selected_index))) +
                    set_lag, " days lag")) +
     labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
     theme(plot.caption = element_text(hjust = 0))
-
-
 ```
+
+![](master_function_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 
 ## Slice by lag day
 
-```{r}
 
+```r
 # Slice by lag
     # matRRfit: matrix of exponentiated specific associations from matfit
     # matfit: matrices of predictions and standard errors at the chosen combinations of predictor and lag values
@@ -332,8 +412,17 @@ to_plot_slice <-
     ylab('Odds Ratio') +
     coord_cartesian(xlim = c(set_centered, set_max_plot_value)) +
     theme_bw() 
-  
+```
 
+```
+## `geom_smooth()` using formula 'y ~ x'
+## `geom_smooth()` using formula 'y ~ x'
+## `geom_smooth()` using formula 'y ~ x'
+```
+
+![](master_function_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+
+```r
 # Cumulative by lag  
   
     # cumRRfit: matrix of exponentiated incremental cumulative associations from cumfit
@@ -384,17 +473,22 @@ to_plot_slice <-
     ylab('Odds Ratio') +
     coord_cartesian(xlim = c(set_centered, set_max_plot_value)) +
     theme_bw() 
-
+```
 
 ```
+## `geom_smooth()` using formula 'y ~ x'
+## `geom_smooth()` using formula 'y ~ x'
+## `geom_smooth()` using formula 'y ~ x'
+```
+
+![](master_function_files/figure-html/unnamed-chunk-8-2.png)<!-- -->
 
 
 ## Nest by region
 Nest `cc_exposure_df` by region
 
-```{r, warning = FALSE}
 
-
+```r
 # join lag matrix to case-crossover dataframe
 # mutate new list-column for lag only matrix
 
@@ -427,9 +521,20 @@ assign(paste0(selected_index, "_nest_region"),
 )  
 
 eval(parse(text = paste0(selected_index, "_nest_region"))) 
+```
 
+```
+## # A tibble: 4 x 6
+## # Groups:   region [4]
+##   region   cc_lag_matrix     cc_lag_only     index_cb       index_dlnm pred_dlnm
+##   <chr>    <list>            <list>          <list>         <list>     <list>   
+## 1 Southea~ <tibble [87,561 ~ <tibble [87,56~ <crossbss [87~ <clogit>   <crosspr~
+## 2 Ohio Va~ <tibble [12,613 ~ <tibble [12,61~ <crossbss [12~ <clogit>   <crosspr~
+## 3 South    <tibble [23,547 ~ <tibble [23,54~ <crossbss [23~ <clogit>   <crosspr~
+## 4 West     <tibble [16,154 ~ <tibble [16,15~ <crossbss [16~ <clogit>   <crosspr~
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_region <-
@@ -461,14 +566,12 @@ write_rds(paste0("plot_", selected_index, "_region"),
 
 
 eval(parse(text = paste0("plot_", selected_index, "_region"))) +
-    ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by NOAA NCEI climate region")) +
+    ggtitle(paste0("Daily", print_index, " and HSI association \ncumulative over 0-5 days lag by NOAA NCEI climate region")) +
     labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
     theme(plot.caption = element_text(hjust = 0)) 
-
-
-
-
 ```
+
+![](master_function_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
 
 
@@ -477,9 +580,8 @@ eval(parse(text = paste0("plot_", selected_index, "_region"))) +
 Note: there is overlap at sites (eg JBSA incl Lackland AFB and Fort Sam Houston)
 Nest `cc_exposure_df` by `base_service`
 
-```{r, warning = FALSE}
 
-
+```r
 assign(paste0(selected_index, "_nest_service"),
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
@@ -509,9 +611,20 @@ assign(paste0(selected_index, "_nest_service"),
 )  
 
 eval(parse(text = paste0(selected_index, "_nest_service"))) 
+```
 
+```
+## # A tibble: 4 x 6
+## # Groups:   base_service [4]
+##   base_service cc_lag_matrix    cc_lag_only    index_cb     index_dlnm pred_dlnm
+##   <chr>        <list>           <list>         <list>       <list>     <list>   
+## 1 Army         <tibble [88,629~ <tibble [88,6~ <crossbss [~ <clogit>   <crosspr~
+## 2 Marine Corps <tibble [42,871~ <tibble [42,8~ <crossbss [~ <clogit>   <crosspr~
+## 3 Air Force    <tibble [5,449 ~ <tibble [5,44~ <crossbss [~ <clogit>   <crosspr~
+## 4 Navy         <tibble [2,926 ~ <tibble [2,92~ <crossbss [~ <clogit>   <crosspr~
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_service <-
@@ -546,12 +659,9 @@ eval(parse(text = paste0("plot_", selected_index, "_service"))) +
     ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by service branch (installation-level)")) +
     labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
     theme(plot.caption = element_text(hjust = 0)) 
-
-
-
-
-
 ```
+
+![](master_function_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 
 ## Nest by time in season
@@ -560,9 +670,8 @@ eval(parse(text = paste0("plot_", selected_index, "_service"))) +
 days 0-185 (early season) vs days 186-366 (late season) 
 
 
-```{r, warning = FALSE}
 
-
+```r
 assign(paste0(selected_index, "_nest_tis"),
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
@@ -597,9 +706,18 @@ assign(paste0(selected_index, "_nest_tis"),
 )  
 
 eval(parse(text = paste0(selected_index, "_nest_tis"))) 
+```
 
+```
+## # A tibble: 2 x 6
+## # Groups:   Time in season [2]
+##   `Time in season` cc_lag_matrix   cc_lag_only   index_cb   index_dlnm pred_dlnm
+##   <chr>            <list>          <list>        <list>     <list>     <list>   
+## 1 Late season      <tibble [83,63~ <tibble [83,~ <crossbss~ <clogit>   <crosspr~
+## 2 Early season     <tibble [56,24~ <tibble [56,~ <crossbss~ <clogit>   <crosspr~
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_tis <-
@@ -634,183 +752,16 @@ eval(parse(text = paste0("plot_", selected_index, "_tis"))) +
     ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by time in season")) +
     labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
     theme(plot.caption = element_text(hjust = 0)) 
-
-
 ```
 
-
-
-
-
-## Nest by HSI type
-Nest `cc_exposure_df` by region
-
-```{r, warning = FALSE}
-
-
-# join lag matrix to case-crossover dataframe
-# mutate new list-column for lag only matrix
-
-assign(paste0(selected_index, "_nest_hsi"),
-  cc_exposure_df %>%
-    filter(year %in% 1998:2019) %>%
-    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
-    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>% 
-    group_by(hsi) %>% 
-    nest() %>% 
-    rename(cc_lag_matrix = data) %>% 
-    mutate(cc_lag_only =
-             map(cc_lag_matrix, ~ .x %>% dplyr::select(selected_index, lag_1:paste0("lag_", set_lag))),
-           index_cb = 
-             map(cc_lag_only, ~ crossbasis(
-                .x,    
-                lag = set_lag,    # of lags
-                argvar = list(fun = "ns", df = set_dr_df),    #  functional form of the dose-response curve
-                arglag = list(fun = "ns", df = set_lag_df))                
-              ),
-           index_dlnm = 
-             map2(.x = index_cb, .y = cc_lag_matrix,  ~ survival::clogit(case ~ 
-                    .x +  # lagged, nonlinear term for exposure
-                    strata(stratum), 
-                    method = "efron",
-                    data =  .y)),
-            pred_dlnm = 
-              map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)))
-)  
-
-eval(parse(text = paste0(selected_index, "_nest_hsi"))) 
-
-
-
-# Plot cumulative lag
-
-to_plot_hsi<-
-  eval(parse(text = paste0(selected_index, "_nest_hsi"))) %>% 
-    mutate(to_plot = 
-             map(.x = pred_dlnm, ~ 
-                   data.frame(index = .x$predvar, 
-                      mean = .x$allRRfit,
-                      lower = .x$allRRlow,
-                      upper = .x$allRRhigh))) %>% 
-    dplyr::select(hsi, to_plot) %>% 
-      unnest(to_plot) %>% 
-  filter(index <= set_max_plot_value)
-
-
-assign(paste0("plot_", selected_index, "_hsi"),
-  ggplot(data = to_plot_hsi, aes(x = index, y = mean, ymin = lower, ymax = upper, color = hsi, fill = hsi)) +
-    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-    geom_ribbon(alpha = 0.1, colour = NA) +
-    geom_line(size = 1.25) +
-    xlab(print_index) +
-    ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(set_centered, set_max_plot_value), ylim = c(NA, NA)) +
-    theme_bw() 
-)
-
-write_rds(paste0("plot_", selected_index, "_hsi"), 
-  file = paste0("output/", paste0("plot_", selected_index, "_hsi"), ".rds"))
-
-
-eval(parse(text = paste0("plot_", selected_index, "_hsi"))) +
-    ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by HSI type")) +
-    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
-    theme(plot.caption = element_text(hjust = 0)) 
-
-
-```
-
-
-
-## Nest by HSI encounter source
-Nest `cc_exposure_df` by region
-
-```{r, warning = FALSE}
-
-
-# join lag matrix to case-crossover dataframe
-# mutate new list-column for lag only matrix
-
-assign(paste0(selected_index, "_nest_source"),
-  cc_exposure_df %>%
-    filter(year %in% 1998:2019) %>%
-    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
-    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>% 
-    group_by(source) %>% 
-    nest() %>% 
-    rename(cc_lag_matrix = data) %>% 
-    mutate(cc_lag_only =
-             map(cc_lag_matrix, ~ .x %>% dplyr::select(selected_index, lag_1:paste0("lag_", set_lag))),
-           index_cb = 
-             map(cc_lag_only, ~ crossbasis(
-                .x,    
-                lag = set_lag,    # of lags
-                argvar = list(fun = "ns", df = set_dr_df),    #  functional form of the dose-response curve
-                arglag = list(fun = "ns", df = set_lag_df))                
-              ),
-           index_dlnm = 
-             map2(.x = index_cb, .y = cc_lag_matrix,  ~ survival::clogit(case ~ 
-                    .x +  # lagged, nonlinear term for exposure
-                    strata(stratum), 
-                    method = "efron",
-                    data =  .y)),
-            pred_dlnm = 
-              map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
-                .x, .y, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)))
-)  
-
-eval(parse(text = paste0(selected_index, "_nest_source"))) 
-
-
-
-# Plot cumulative lag
-
-to_plot_source<-
-  eval(parse(text = paste0(selected_index, "_nest_source"))) %>% 
-    mutate(to_plot = 
-             map(.x = pred_dlnm, ~ 
-                   data.frame(index = .x$predvar, 
-                      mean = .x$allRRfit,
-                      lower = .x$allRRlow,
-                      upper = .x$allRRhigh))) %>% 
-    dplyr::select(source, to_plot) %>% 
-      unnest(to_plot) %>% 
-  filter(index <= set_max_plot_value)
-
-
-assign(paste0("plot_", selected_index, "_source"),
-  ggplot(data = to_plot_source, aes(x = index, y = mean, ymin = lower, ymax = upper, color = source, fill = source)) +
-    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-    geom_ribbon(alpha = 0.1, colour = NA) +
-    geom_line(size = 1.25) +
-    xlab(print_index) +
-    ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(set_centered, set_max_plot_value), ylim = c(NA, NA)) +
-    theme_bw() 
-)
-
-write_rds(paste0("plot_", selected_index, "_source"), 
-  file = paste0("output/", paste0("plot_", selected_index, "_source"), ".rds"))
-
-
-eval(parse(text = paste0("plot_", selected_index, "_source"))) +
-    ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by HSI encounter source")) +
-    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
-    theme(plot.caption = element_text(hjust = 0)) 
-
-
-```
-
-
-
+![](master_function_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 
 ## Nest by installation
 
 
-```{r, warning = FALSE}
 
+```r
 assign(paste0(selected_index, "_nest_base"),
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
@@ -840,9 +791,27 @@ assign(paste0(selected_index, "_nest_base"),
 )  
 
 eval(parse(text = paste0(selected_index, "_nest_base"))) 
+```
 
+```
+## # A tibble: 24 x 6
+## # Groups:   installation_name [24]
+##    installation_name cc_lag_matrix  cc_lag_only  index_cb   index_dlnm pred_dlnm
+##    <chr>             <list>         <list>       <list>     <list>     <list>   
+##  1 fort_benning      <tibble [20,7~ <tibble [20~ <crossbss~ <clogit>   <crosspr~
+##  2 fort_bragg        <tibble [20,9~ <tibble [20~ <crossbss~ <clogit>   <crosspr~
+##  3 camp_lejeune      <tibble [13,1~ <tibble [13~ <crossbss~ <clogit>   <crosspr~
+##  4 parris_island     <tibble [10,8~ <tibble [10~ <crossbss~ <clogit>   <crosspr~
+##  5 fort_campbell     <tibble [8,77~ <tibble [8,~ <crossbss~ <clogit>   <crosspr~
+##  6 fort_polk         <tibble [7,46~ <tibble [7,~ <crossbss~ <clogit>   <crosspr~
+##  7 fort_jackson      <tibble [7,78~ <tibble [7,~ <crossbss~ <clogit>   <crosspr~
+##  8 camp_pendleton    <tibble [6,59~ <tibble [6,~ <crossbss~ <clogit>   <crosspr~
+##  9 fort_hood         <tibble [5,83~ <tibble [5,~ <crossbss~ <clogit>   <crosspr~
+## 10 mcrd_san_diego    <tibble [5,12~ <tibble [5,~ <crossbss~ <clogit>   <crosspr~
+## # ... with 14 more rows
+```
 
-
+```r
 # Plot cumulative lag
 
 to_plot_base <-
@@ -877,8 +846,7 @@ eval(parse(text = paste0("plot_", selected_index, "_base"))) +
     ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by installation")) +
     labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
     theme(plot.caption = element_text(hjust = 0)) 
-
-
-
 ```
+
+![](master_function_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 

@@ -610,6 +610,7 @@ to_index_table <-
       Index %in% c("tmp_f_max", "heat_index_max", "wbgt_max")    ~ "Max"),
       index = fct_relevel(index, "Temperature", "Heat Index", "WBGT"),
       type = fct_relevel(type, "Max", "Mean"),
+      installation_name = fct_infreq(installation_name),
       index_name = paste(index, type, sep = "-")
     ) %>% 
   dplyr::select(installation_name, index_name, Value) %>%
@@ -622,9 +623,25 @@ to_index_table <-
 
 
 table1::table1(~ `Temperature-Mean` + `Temperature-Max` + `Heat Index-Mean` +
-               `Heat Index-Max` + `WBGT-Mean` + `WBGT-Max`, data = to_index_table)
-  
-  
+               `Heat Index-Max` + `WBGT-Mean` + `WBGT-Max`, 
+       render.continuous=c(.="Mean (SD)", .="Median (IQR)",
+                           .="Q1, Q3", .="Min, Max"),
+               data = to_index_table)
+
+
+table1::table1(~ `Temperature-Mean` + `Temperature-Max` + `Heat Index-Mean` +
+               `Heat Index-Max` + `WBGT-Mean` + `WBGT-Max` | installation_name, 
+       render.continuous=c(.="Mean (SD)", .="Median (IQR)",
+                           .="Q1, Q3", .="Min, Max"),
+               data = to_index_table)
+
+table1::table1(~ `Temperature-Mean` + `Temperature-Max` + `Heat Index-Mean` +
+               `Heat Index-Max` + `WBGT-Mean` + `WBGT-Max` | installation_name, 
+       render.continuous=c(.="Mean (SD)", .="Median (IQR)",
+                           .="Q1, Q3", .="Min, Max"), transpose = TRUE,
+               data = to_index_table)
+
+
     
   knitr::kable()
 

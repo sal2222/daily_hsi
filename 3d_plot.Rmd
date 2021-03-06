@@ -25,6 +25,8 @@ library(reshape2)
 library(magick)
 library(av)
 library(ggrepel)
+library(cowplot)
+library(gridGraphics)
 
 ```
 
@@ -78,7 +80,7 @@ daily_indices <-
 
 ```{r}
 
-selected_index <- "tmp_f_max"
+selected_index <- "tmp_f_mean"
 
 # crossbasis options
 set_lag <- 5    # total number days lag to assess
@@ -219,18 +221,56 @@ summary(pred_dlnm)
 #3D Plot 
 
 assign(paste0("plot_", selected_index, "_3d"),
-plot(pred_dlnm, ptype = "3d", 
+  plot(pred_dlnm, ptype = "3d", 
+     xlab = paste(print_index), zlab = "\nOR", ylab = "\nLag Day", 
+     theta = 40, phi = 30, lphi = 30)
+  )
+
+
+
+#eval(parse(text = paste0("plot_", selected_index, "_3d")))
+
+#write_rds(eval(parse(text = paste0("plot_", selected_index, "_3d"))), 
+#  file = paste0("output/", paste0("plot_", selected_index, "_3d"), ".rds"))
+
+
+A <-
+  recordPlot(
+ plot(pred_dlnm, ptype = "3d", 
      xlab = paste(print_index), zlab = "\nOR", ylab = "\nLag Day", 
      theta = 40, phi = 30, lphi = 30)
 )
 
+replayPlot(A)
 
-eval(parse(text = paste0("plot_", selected_index, "_3d"))) 
 
-write_rds(paste0("plot_", selected_index, "_3d"), 
-  file = paste0("output/", paste0("plot_", selected_index, "_3d"), ".rds"))
 
 ```
+
+
+
+
+## 3-d plots combined
+
+```{r}
+
+selected_index <- c("tmp_f_mean", "heat_index_mean","wbgt_mean","tmp_f_max", "heat_index_max", "wbgt_max")
+
+patchwork_3d_df_5_4 <-
+      (read_rds(paste0("output/plot_", selected_index[1], "_3d.rds")) |   
+         read_rds(paste0("output/plot_", selected_index[2], "_3d.rds")) |  
+         read_rds(paste0("output/plot_", selected_index[3], "_3d.rds"))   
+         ) /
+        (read_rds(paste0("output/plot_", selected_index[4], "_3d.rds")) |   
+         read_rds(paste0("output/plot_", selected_index[5], "_3d.rds")) |  
+         read_rds(paste0("output/plot_", selected_index[6], "_3d.rds"))) +
+            plot_annotation(tag_levels = 'A') +
+            plot_layout(guides = 'collect') & 
+            theme(legend.position = "bottom")
+  
+
+```
+
 
 
 

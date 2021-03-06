@@ -667,22 +667,23 @@ to_plot_base <-
 
 ggplot(data = to_plot_base, aes(x = index, y = mean, ymin = lower, ymax = upper, color = installation_name, fill = installation_name)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-   # geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_ribbon(alpha = 0.05, colour = NA) +
      geom_line(size = 1) +
      ggrepel::geom_text_repel(data = to_plot_base %>% group_by(installation_name) %>% 
-            filter(index == 90,
-                   mean >= 10),
+            filter(index == 106,
+                   mean >= 120),
             aes(label = installation_name),
             nudge_x = -10,
             nudge_y = 60) +
-    labs(title = "min.segment.length = 0") +
     xlab('Max Temperature (°F)') +
     ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(60, 112), ylim = c(NA, 200)) +
+    coord_cartesian(xlim = c(60, 112), ylim = c(NA, 1000)) +
     theme_bw() +
-    ggtitle("Daily maximum temperature and HSI association cumulative\nover 0-5 days lag by installation") +
-    labs(caption = "ORs relative to 60°F maximum temperature") +
-    theme(plot.caption = element_text(hjust = 0)) 
+    #ggtitle("Daily maximum temperature and HSI association cumulative\nover 0-5 days lag by installation") +
+    #labs(caption = "ORs relative to 60°F maximum temperature") +
+    theme(plot.caption = element_text(hjust = 0)) +
+    theme(legend.title = element_blank()) 
+#  #  theme(legend.position = "bottom") 
 
 
 

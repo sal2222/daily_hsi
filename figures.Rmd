@@ -53,6 +53,63 @@ patchwork_df_5_4[9]
 
 
 
+## OR Table
+
+```{r}
+
+selected_index <- c("tmp_f_mean", "heat_index_mean","wbgt_mean","tmp_f_max", "heat_index_max", "wbgt_max")
+
+
+or_df_5_4 <-
+  purrr::map_df(.x = selected_index,
+             ~bind_rows(read_rds(paste0("output/or_table_", .x, ".rds")))
+  ) %>% 
+  mutate(index_key = index,
+         index = 
+           case_when(
+              index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
+              index %in% "wbgt_max" ~ "Max WBGT (°F)",
+              index %in% "heat_index_mean" ~ "Mean Heat Index (°F)",
+              index %in% "heat_index_max" ~ "Max Heat Index (°F)",
+              index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
+              index %in% "tmp_f_max" ~ "Max Temperature (°F)"),
+          or_ci = paste0(format(round(rr, digits = 1), nsmall = 1), " (", format(round(ci_low, digits = 1), nsmall = 1), ",", 
+                         format(round(ci_high, digits = 1), nsmall = 1), ")")
+        ) %>% 
+    rename(or = rr,
+           value = var) 
+  
+
+
+or_df_5_4 
+
+
+# OR table (wide)
+or_df_5_4 %>% 
+  dplyr::select(-c(index_key, or, ci_low, ci_high)) %>% 
+  filter(value %in% seq(from = 65, to = 115, by = 5)) %>%
+  pivot_wider(names_from = value, values_from = or_ci) %>% 
+  knitr::kable()
+
+# OR table ("long"- transposed)
+
+or_df_5_4 %>% 
+  dplyr::select(-c(index_key, or, ci_low, ci_high)) %>% 
+  filter(value %in% seq(from = 65, to = 115, by = 5)) %>% 
+  pivot_wider(names_from = index, values_from = or_ci) %>% 
+  knitr::kable()
+
+
+
+
+
+```
+
+
+
+
+
+
 
 ## Initial plots
 ```{r, eval = FALSE}

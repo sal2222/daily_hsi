@@ -78,7 +78,7 @@ daily_indices <-
 
 ```{r}
 
-selected_index <- "wbgt_mean"
+selected_index <- "tmp_f_max"
 
 # crossbasis options
 set_lag <- 5    # total number days lag to assess
@@ -110,6 +110,19 @@ set_max_plot_value
 set_max_temp <- set_max_plot_value
 
 set_max_temp
+
+
+print_index <- case_when(
+  selected_index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
+  selected_index %in% "wbgt_max" ~ "Max WBGT (°F)",
+  selected_index %in% "heat_index_mean" ~ "Mean Heat Index (°F)",
+  selected_index %in% "heat_index_max" ~ "Max Heat Index (°F)",
+  selected_index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
+  selected_index %in% "tmp_f_max" ~ "Max Temperature (°F)",
+    )
+
+
+print_index
 
 
 
@@ -205,10 +218,17 @@ summary(pred_dlnm)
 
 #3D Plot 
 
-
+assign(paste0("plot_", selected_index, "_3d"),
 plot(pred_dlnm, ptype = "3d", 
-     xlab = paste(selected_index), zlab = "\nOR", ylab = "\nLag Day", 
+     xlab = paste(print_index), zlab = "\nOR", ylab = "\nLag Day", 
      theta = 40, phi = 30, lphi = 30)
+)
+
+
+eval(parse(text = paste0("plot_", selected_index, "_3d"))) 
+
+write_rds(paste0("plot_", selected_index, "_3d"), 
+  file = paste0("output/", paste0("plot_", selected_index, "_3d"), ".rds"))
 
 ```
 

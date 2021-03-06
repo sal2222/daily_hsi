@@ -17,34 +17,45 @@ library(patchwork)
 ```
 
 
-## Overall OR plots
-```{r}
+## Patchwork plots for combined indices
 
-# Read in ggplot objects
 
-plot_mean_temp <-
-  read_rds("output/plot_mean_temp.rds")
+```{r, message = FALSE}
 
-plot_max_temp <-
-  read_rds("output/plot_max_temp.rds")
+selected_index <- c("tmp_f_mean", "heat_index_mean","wbgt_mean","tmp_f_max", "heat_index_max", "wbgt_max")
 
-plot_mean_hi <-
-  read_rds("output/plot_mean_hi.rds")
+suffix <- c("", "_lag_slice", "_lag_slice_cum", "_region", "_service",
+           "_tis", "_hsi", "_source", "_base")
 
-plot_max_hi <-
-  read_rds("output/plot_max_hi.rds")
+patchwork_df_5_4 <-
+  purrr::map(.x = suffix,
+      ~(read_rds(paste0("output/plot_", selected_index[1], .x, ".rds")) |   
+         read_rds(paste0("output/plot_", selected_index[2], .x, ".rds")) |  
+         read_rds(paste0("output/plot_", selected_index[3], .x, ".rds"))   
+         ) /
+        (read_rds(paste0("output/plot_", selected_index[4], .x, ".rds")) |   
+         read_rds(paste0("output/plot_", selected_index[5], .x, ".rds")) |  
+         read_rds(paste0("output/plot_", selected_index[6], .x, ".rds"))) +
+            plot_annotation(tag_levels = 'A') +
+            plot_layout(guides = 'collect') & 
+            theme(legend.position = "bottom")
+  )
 
-plot_mean_wbgt <-
-  read_rds("output/plot_mean_wbgt.rds")
 
-plot_max_wbgt <-
-  read_rds("output/plot_max_wbgt.rds")
+write_rds(patchwork_df_5_4, "output/patchwork_df_5_4.rds")     
+
+patchwork_df_5_4[9]
+
+      
 
 ```
 
 
 
-```{r}
+
+
+## Initial plots
+```{r, eval = FALSE}
 
 # gridExtra
 gridExtra::grid.arrange(plot_mean_temp, plot_mean_hi, plot_mean_wbgt, 
@@ -60,16 +71,22 @@ gridExtra::grid.arrange(plot_mean_temp, plot_mean_hi, plot_mean_wbgt,
 
   # Tagging: https://patchwork.data-imaginist.com/articles/guides/annotation.html
 
-(plot_mean_temp | plot_mean_hi | plot_mean_wbgt) / 
-(plot_max_temp | plot_max_hi | plot_max_wbgt) + plot_annotation(tag_levels = 'A')
+
+plot_overall_df_5_4 <-
+  (plot_mean_temp | plot_mean_hi | plot_mean_wbgt) / 
+  (plot_max_temp | plot_max_hi | plot_max_wbgt) + plot_annotation(tag_levels = 'A')
+
+# ggsave("output/plot_overall_df_5_4.png")
+
+plot_overall_df_5_4
+
 
 ```
 
 
 
-
 ## Overall OR plots by Region
-```{r}
+```{r, eval = FALSE}
 
 # Read in ggplot objects
 
@@ -91,18 +108,93 @@ plot_mean_wbgt_region <-
 plot_max_wbgt_region <-
   read_rds("output/plot_max_wbgt_region.rds")
 
+
+
+plot_region_df_5_4 <-
+  (plot_mean_temp_region | plot_mean_hi_region | plot_mean_wbgt_region) / 
+  (plot_max_temp_region | plot_max_hi_region | plot_max_wbgt_region) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = "bottom")
+
+
+ggsave("output/plot_region_df_5_4.png")
+
+plot_region_df_5_4
+
+```
+
+
+## Overall OR plots by Region
+```{r, eval = FALSE}
+
+# Read in ggplot objects
+
+plot_mean_temp_region <-
+  read_rds("output/plot_mean_temp_region.rds")
+
+plot_max_temp_region <-
+  read_rds("output/plot_max_temp_region.rds")
+
+plot_mean_hi_region <-
+  read_rds("output/plot_mean_hi_region.rds")
+
+plot_max_hi_region <-
+  read_rds("output/plot_max_hi_region.rds")
+
+plot_mean_wbgt_region <-
+  read_rds("output/plot_mean_wbgt_region.rds")
+
+plot_max_wbgt_region <-
+  read_rds("output/plot_max_wbgt_region.rds")
+
+
+
+plot_region_df_5_4 <-
+  (plot_mean_temp_region | plot_mean_hi_region | plot_mean_wbgt_region) / 
+  (plot_max_temp_region | plot_max_hi_region | plot_max_wbgt_region) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = "bottom")
+
+
+ggsave("output/plot_region_df_5_4.png")
+plot_region_df_5_4
+
 ```
 
 
 
-```{r}
-
-gridExtra::grid.arrange(plot_mean_temp_region, plot_mean_hi_region, plot_mean_wbgt_region, 
-                        plot_max_temp_region, plot_max_hi_region, plot_max_wbgt_region,
-                        nrow = 2, ncol = 3)
 
 
-(plot_mean_temp_region | plot_mean_hi_region | plot_mean_wbgt_region) / 
-(plot_max_temp_region | plot_max_hi_region | plot_max_wbgt_region) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = "bottom")
+## Overall OR plots by region
+```{r, eval = FALSE}
+
+# Read in ggplot objects
+
+plot_tmp_f_mean_region <-
+  read_rds("output/plot_tmp_f_mean_region.rds")
+
+plot_tmp_f_max_region <-
+  read_rds("output/plot_tmp_f_max_region.rds")
+
+plot_heat_index_mean_region <-
+  read_rds("output/plot_heat_index_mean_region.rds")
+
+plot_heat_index_max_region <-
+  read_rds("output/plot_heat_index_max_region.rds")
+
+plot_wbgt_mean_region <-
+  read_rds("output/plot_wbgt_mean_region.rds")
+
+plot_wbgt_max_region <-
+  read_rds("output/plot_wbgt_max_region.rds")
+
+
+
+plot_region_df_5_4 <-
+  (plot_tmp_f_mean_region | plot_heat_index_mean_region | plot_wbgt_mean_region) / 
+  (plot_tmp_f_max_region | plot_heat_index_max_region | plot_wbgt_max_region) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = "bottom")
+
+
+ggsave("output/plot_region_df_5_4.png")
+plot_region_df_5_4
 
 ```
+
+
+

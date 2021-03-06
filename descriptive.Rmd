@@ -55,9 +55,10 @@ daily_indices <- read_rds(file = "data/daily_indices.rds")
 cc_exposure_df <-
   read_rds(file = "data/cc_exposure_df.rds")
 
-# cc_exposure_df <-
-#   read_rds(file = "E:/data/cc_exposure_df.rds") %>% 
-#   mutate(wbgt_f_mean = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean))
+cc_exposure_df <-
+  cc_exposure_df %>% 
+      mutate(wbgt_mean = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+             wbgt_max = weathermetrics::celsius.to.fahrenheit(wbgt_max))
 
 
 cc_exposure_df %>% 
@@ -340,6 +341,33 @@ cc_exposure_df %>%
   GGally::ggpairs(title = "Correlogram of daily indices (Log transformed) for HSI case days, 1998-2019") +
     theme_bw()
 ```
+
+
+
+
+## Scatterplot (correlogram) by indices -- Upper temperature range
+Filter to case days with WBGT-Max greater than 85 deg F
+
+```{r}
+
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+  dplyr::select(tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>%
+  filter(wbgt_max > 85) %>%
+  dplyr::select(tmp_f_max, heat_index_max, wbgt_max) %>%
+  GGally::ggpairs(title = "Correlogram of daily indices for HSI case days",
+                  lower = list(continuous = wrap("points", alpha = 0.3, size = 0.5))) +
+    theme_bw()
+
+#ggsave("output/index_correlogram_upper.png")
+
+
+# 12,865 of 31,642 above WBGT_max 85 deg
+
+```
+
+
+
 
 
 ### Index distributions

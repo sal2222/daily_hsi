@@ -61,8 +61,14 @@ cc_exposure_df <-
              wbgt_max = weathermetrics::celsius.to.fahrenheit(wbgt_max))
 
 
+base_service_df <-
+  read_rds(file = "data/base_service_df.rds")
+
+
+
 cc_exposure_df %>% 
   count(installation_name) %>% View() #24 installations
+
 
 
 # cc_exposure_df <-
@@ -807,7 +813,99 @@ ggplot(data = usa) +
           legend.position = "bottom")
 
 
+
+
 ```
+
+
+
+## Map with NOAA NCEI Climate Regions
+
+
+```{r}
+
+
+# NOAA/NCEI Regions by State (Karl and Koss, 1984)
+
+ # Assign states/regions: https://www.ncdc.noaa.gov/monitoring-references/maps/us-climate-regions.php
+
+
+state_list <- states$ID
+
+climate_regions_df <-
+  state_list %>% 
+    as_tibble() %>% 
+    rename(state = value) %>% 
+    mutate(climate_region =
+             case_when(
+          state %in% c("illinois", "indiana", "kentucky", "missouri", "ohio", "tennessee", "west virginia") ~ "Ohio Valley",
+          state %in% c("iowa", "michigan", "minnesota", "wisconsin") ~ "Upper Midwest",
+          state %in% c("connecticut", "delaware", "maine", "maryland", "massachusetts",
+                       "new hampshire", "new jersey", "new york", "pennsylvania", "rhode island", "vermont") ~ "Northeast",
+          state %in% c("idaho", "oregon", "washington") ~ "Northwest",
+          state %in% c("arkansas", "kansas", "louisiana", "mississippi", "oklahoma", "texas") ~ "South",
+          state %in% c("alabama", "florida", "georgia", "north carolina", "south carolina", "virginia") ~ "Southeast",
+          state %in% c("arizona", "colorado", "new mexico", "utah") ~ "Southwest",
+          state %in% c("california", "nevada") ~ "West",
+          state %in% c("montana", "nebraska", "north dakota", "south dakota", "wyoming") ~ "Northern Rockies and Plains")
+      )
+
+
+# join climate regions to states shapefiles (sf object)
+
+states_clim <-
+  states %>% 
+    left_join(climate_regions_df, by = c("ID" = "state"))
+
+states_clim
+
+
+# Merge states to climate regions (st_union)
+
+clim_region_union <-
+  states_clim %>% 
+    drop_na() %>%  #Washington DC not assigned
+    group_by(climate_region) %>% 
+    summarise(geom = st_union(geom)) %>% 
+    mutate(centroid = st_centroid(geom),
+           lon = sf::st_coordinates(centroid)[,1],
+           lat = sf::st_coordinates(centroid)[,2])
+
+
+
+# Filter to only include climate regions for map
+
+clim_region_union <-
+  clim_region_union %>% 
+  filter(climate_region %in% c("West", "South", "Southeast", "Ohio Valley"))
+
+
+
+
+ggplot(data = usa) +
+    geom_sf() +
+    geom_sf(data = states_clim, aes(fill = climate_region)) + 
+    geom_point(data = sites, aes(x = longitude, y = latitude, color = service), size = 5) +
+    geom_sf(data = sites) +
+    geom_text_repel(data = sites, aes(x = longitude, y = latitude, label = names), fontface = "bold", size = 3,
+                    nudge_y = 1) +
+    geom_label_repel(data = clim_region_union, aes(x = lon, y = lat, label = climate_region), fontface = "bold", size = 4,
+                    alpha = 0.3) +
+    coord_sf(xlim = c(-124, -72), ylim = c(25, 45), expand = FALSE) +
+    theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
+        size = 0.5), panel.background = element_rect(fill = "white")) +
+    theme(panel.border = element_rect(colour = "black", fill = NA, size = 1),
+          legend.position = "bottom") +
+    scale_fill_viridis(discrete = TRUE, alpha = 0.5, option = "cividis", guide = FALSE) 
+
+
+#    guides(fill = guide_legend(override.aes = list(alpha = 0.5))) 
+
+
+
+
+```
+
 
 
 

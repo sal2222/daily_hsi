@@ -891,6 +891,7 @@ ggplot(data = usa) +
                     nudge_y = 1) +
     geom_label_repel(data = clim_region_union, aes(x = lon, y = lat, label = climate_region), fontface = "bold", size = 4,
                     alpha = 0.3) +
+    geom_sf(data = clim_region_union, fill = "transparent", size = 1.05) +
     coord_sf(xlim = c(-124, -72), ylim = c(25, 45), expand = FALSE) +
     theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
         size = 0.5), panel.background = element_rect(fill = "white")) +

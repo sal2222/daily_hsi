@@ -6,15 +6,16 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$smdljts/wbgtet(echo = TRUE)
 
 library(tidyverse)
 library(lutz)
 library(weathermetrics)
 library(devtools)
-library(wbgt) #devtools::install_github("mdljts/wbgt")
+library(wbgt) #devtools::install_github("")
 library(sf) 
 library(lubridate)
+
 
 ```
 

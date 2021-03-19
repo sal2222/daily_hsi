@@ -34,6 +34,7 @@ library(GGally)
 library(fitdistrplus)
 library(viridis)
 library(janitor)
+library(patchwork)
 ```
 
 
@@ -369,6 +370,133 @@ cc_exposure_df %>%
 
 
 # 12,865 of 31,642 above WBGT_max 85 deg
+
+
+```
+
+
+```{r}
+
+to_scatter <-
+  cc_exposure_df %>% 
+    dplyr::select(installation_name, case, source, age, sex, race_ethnic, service, grade, hsi,
+                  tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>% 
+       mutate(service = recode(service,
+            "A" = "Army",
+            "C" = "Coast Guard",
+            "F" = "Air Force",
+            "M" = "Marine Corps",
+            "N" = "Navy"),
+            source = recode(source,
+            "INPATIENT" = "In-Patient",
+            "OUTPATIENT" = "Out-Patient",
+            "RME" = "Reportable Event"),
+            hsi = recode(hsi,
+            "heat_exhaustion" = "Heat Exhaustion",
+            "heat_stroke" = "Heat Stroke"),
+            sex = recode(sex,
+            "F" = "Female",
+            "M" = "Male",
+            "Z" = "Unknown"),
+            case = as_factor(case),
+            case = recode(case,
+                          "0" = "Control",
+                          "1" = "Case")
+                      ) %>% 
+  left_join(climate_regions %>% 
+              mutate(installation_name = janitor::make_clean_names(installation_name)),
+            by = "installation_name") %>% 
+  mutate_if(is.character, as.factor) %>% 
+            mutate(age = fct_relevel(age, ">=40", after = Inf)) %>% 
+   rename("Max Temp" = tmp_f_max,
+         "Max HI" = heat_index_max,
+         "Max WBGT" = wbgt_max,
+         "Mean Temp" = tmp_f_mean,
+         "Mean HI" = heat_index_mean,
+         "Mean WBGT" = wbgt_mean,
+         "Region" = region) 
+
+
+
+# Mean pairwise scatterplots
+
+  # set alpha value
+alpha_val <- 0.6
+
+s1 <-
+to_scatter %>% 
+    filter(case %in% "Case",
+           `Max WBGT` > 85) %>% 
+  dplyr::select(`Mean Temp`, `Mean HI`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temp`, y = `Mean HI`, color = Region)) +
+    geom_point(alpha = alpha_val) +
+  #  geom_smooth(method = "lm", se = FALSE) +
+     theme_bw()
+
+s2 <-
+to_scatter %>% 
+    filter(case %in% "Case",
+                   `Max WBGT` > 85) %>% 
+  dplyr::select(`Mean Temp`, `Mean HI`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temp`, y = `Mean WBGT`, color = Region)) +
+    geom_point(alpha = alpha_val) +
+  #  geom_smooth(method = "lm", se = FALSE) +
+     theme_bw()
+
+s3 <-
+to_scatter %>% 
+    filter(case %in% "Case",
+                   `Max WBGT` > 85) %>%  
+  dplyr::select(`Mean Temp`, `Mean HI`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean HI`, y = `Mean WBGT`, color = Region)) +
+    geom_point(alpha = alpha_val) +
+   # geom_smooth(method = "lm", se = FALSE) +
+     theme_bw()
+
+
+# Max pairwise scatterplots
+
+s4 <-
+to_scatter %>% 
+    filter(case %in% "Case") %>% 
+  dplyr::select(`Max Temp`, `Max HI`, `Max WBGT`, Region) %>%
+  filter(`Max WBGT` > 85) %>%
+  ggplot(aes(x = `Max Temp`, y = `Max HI`, color = Region)) +
+    geom_point(alpha = alpha_val) +
+  #  geom_smooth(method = "lm", se = FALSE) +
+     theme_bw()
+
+
+s5 <-
+to_scatter %>% 
+    filter(case %in% "Case") %>% 
+  dplyr::select(`Max Temp`, `Max HI`, `Max WBGT`, Region) %>%
+  filter(`Max WBGT` > 85) %>%
+  ggplot(aes(x = `Max Temp`, y = `Max WBGT`, color = Region)) +
+    geom_point(alpha = alpha_val) +
+  #  geom_smooth(method = "lm", se = FALSE) +
+     theme_bw()
+
+s6 <-
+to_scatter %>% 
+    filter(case %in% "Case") %>% 
+  dplyr::select(`Max Temp`, `Max HI`, `Max WBGT`, Region) %>%
+  filter(`Max WBGT` > 85) %>%
+  ggplot(aes(x = `Max HI`, y = `Max WBGT`, color = Region)) +
+    geom_point(alpha = alpha_val) +
+   # geom_smooth(method = "lm", se = FALSE) +
+     theme_bw()
+
+
+
+# patchwork grid plot
+
+(s1 | s2 | s3) / (s4 | s5 | s6) + 
+  plot_layout(guides = "collect") + 
+  plot_annotation(tag_levels = 'A') & 
+  theme(legend.position = "bottom")
+
+ggsave("output/plot_index_pairs_scatter.png")
 
 ```
 

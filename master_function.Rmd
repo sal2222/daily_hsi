@@ -78,7 +78,7 @@ daily_indices <-
 
 ```{r}
 
-selected_index <- "wbgt_max"
+selected_index <- "wbgt_mean"
 
 # crossbasis options
 set_lag <- 5    # total number days lag to assess
@@ -335,10 +335,10 @@ to_plot_slice <-
 assign(paste0("plot_", selected_index, "_lag_slice"),
   ggplot(data = to_plot_slice, aes(x = index_value, color = lag)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-    #geom_point(aes(y = OR), size = 0.5) +
-    geom_smooth(aes(y = OR), se = FALSE, size = 1.2, method = "loess") +
-    geom_smooth(aes(y = OR_low), se = FALSE, size = 0.5, linetype = "dashed", method = "loess") +
-    geom_smooth(aes(y = OR_high), se = FALSE, size = 0.5, linetype = "dashed", method = "loess") +
+    geom_point(aes(y = OR)) +
+    geom_line(aes(y = OR), se = FALSE, size = 1.2, method = "loess") +
+    geom_line(aes(y = OR_low), se = FALSE, size = 0.5, linetype = "dashed") +
+    geom_line(aes(y = OR_high), se = FALSE, size = 0.5, linetype = "dashed") +
     xlab(print_index) +
     ylab('Odds Ratio') +
     coord_cartesian(xlim = c(set_centered, set_max_plot_value),
@@ -391,12 +391,11 @@ to_plot_slice_cum <-
   mutate(index_value = as.numeric(index_value))
 
 
-to_plot_slice_cum %>% View()
+to_plot_slice_cum
 
 assign(paste0("plot_", selected_index, "_lag_slice_cum"),
   ggplot(data = to_plot_slice_cum, aes(x = index_value, color = lag)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-    #geom_point(aes(y = OR), size = 0.5) +
     geom_point(aes(y = OR)) +
     geom_line(aes(y = OR), se = FALSE, size = 1.2) +
     geom_line(aes(y = OR_low), se = FALSE, size = 0.5, linetype = "dashed", method = "loess") +
@@ -459,6 +458,7 @@ assign(paste0(selected_index, "_nest_region"),
               map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
                 .x, .y, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)))
 )  
+
 
 eval(parse(text = paste0(selected_index, "_nest_region"))) 
 

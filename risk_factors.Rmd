@@ -1,0 +1,441 @@
+---
+title: "risk_factors"
+output: 
+  html_document:
+   keep_md: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(plotly)
+library(lattice)
+#remotes::install_github("tylermorganwall/rayshader")
+library(rayshader)
+library(dlnm)
+library(survival)
+library(splines)
+library(broom)
+library(weathermetrics)
+library(viridis)
+library(reshape2)
+library(magick)
+library(av)
+library(ggrepel)
+library(table1)
+
+
+citation("dlnm")
+```
+
+## Input data
+
+```{r}
+
+cc_exposure_df <-
+  read_rds(file = "data/cc_exposure_df.rds") 
+
+cc_exposure_df <-
+  cc_exposure_df %>% 
+    mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max),
+           source = tolower(source))
+
+
+base_service_df <-
+   read_rds(file = "data/base_service_df.rds") 
+
+# Add installation branch of service and climate region
+
+cc_exposure_df <-
+  cc_exposure_df %>% 
+    left_join(base_service_df %>%
+                rename(base_service = service) %>% 
+                dplyr::select(installation_name, base_service, region), by = "installation_name") 
+
+
+
+daily_indices <- 
+  read_rds(file = "data/daily_indices.rds") %>% 
+    filter(!installation %in% c("fort_drum", "fort_huachuca", "fort_lewis",
+                                "lackland_afb", "fort_carson", "west_point_mil_reservation")) %>% 
+    mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max),
+            installation = recode(installation,
+              "mcb_camp_lejeune" = "camp_lejeune",
+              "mcb_camp_pendleton" = "camp_pendleton",
+              "fort_benning_ga" = "fort_benning",
+              "fort_sam_houston" = "jbsa",
+              "mcrd_beaufort_parris_island" = "parris_island",
+              "mcb_quantico" = "quantico",
+              "twentynine_palms_main_base" = "twentynine_palms")) 
+     
+```
+
+
+
+
+```{r}
+
+
+cc_exposure_df <-
+  cc_exposure_df %>% 
+  mutate(sex = as_factor(sex),
+         grade = as_factor(grade),
+         race = as_factor(race_ethnic),
+         bmi_calc = as.numeric(weight) / (as.numeric(height)^2) * 703,
+         bmi_cat =
+             case_when(
+               bmi_calc < 18.5 ~ "underweight",
+               bmi_calc >= 18.5 & bmi_calc < 25 ~ "normal",
+               bmi_calc >= 25 & bmi_calc < 30 ~ "overweight",
+               bmi_calc >= 30 ~ "obese"
+             ))
+
+
+
+index_dlnm <- survival::clogit(case ~ 
+                  ns(selected_index, df = 5) +
+                  sex + sex * selected_index +
+                  race + race * selected_index +
+                  grade + grade * selected_index +
+                  bmi_calc + bmi_calc * selected_index +
+                  strata(stratum), 
+                  method = "exact",
+                  data =  cc_exposure_df) 
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+cc_exposure_df %>% 
+  filter(case == 1)
+
+cc_exposure_df %>% 
+  filter(case == 1) %>% 
+  ggplot(aes(x = service, y = bmi)) +
+    geom_boxplot() +
+  theme_bw()
+
+
+cc_exposure_df %>% 
+  filter(case == 1) %>%
+  mutate(bmi_calc = as.numeric(weight) / (as.numeric(height)^2) * 703) %>% 
+  ggplot(aes(x = bmi_calc)) +
+    geom_histogram(bins = 80) +
+    geom_vline(xintercept = 18.5, color = "blue", size = 1) +
+    geom_vline(xintercept = 25, color = "blue", size = 1) +
+    geom_vline(xintercept = 30, color = "blue", size = 1) +
+  theme_bw()
+
+cc_exposure_df %>% 
+  filter(case == 1) %>% 
+  select(weight)
+
+
+to_table1_rf <-
+  cc_exposure_df %>% 
+    filter(case == 1) %>% 
+    dplyr::select(age, sex, race_ethnic, service, grade, height, weight, hor_state, hor_country) %>% 
+       mutate(bmi_calc = as.numeric(weight) / (as.numeric(height)^2) * 703, 
+            bmi_cat =
+             case_when(
+               bmi_calc < 18.5 ~ "underweight",
+               bmi_calc >= 18.5 & bmi_calc < 25 ~ "normal",
+               bmi_calc >= 25 & bmi_calc < 30 ~ "overweight",
+               bmi_calc >= 30 ~ "obese"
+             ),
+         sex = recode(sex,
+            "F" = "Female",
+            "M" = "Male",
+            "Z" = "Unknown")
+            ) %>% 
+  mutate_if(is.character, as.factor) %>% 
+            mutate(age = fct_relevel(age, ">=40", after = Inf))
+
+
+
+label(to_table1_rf$bmi_cat) <- "BMI Category"
+label(to_table1_rf$age) <- "Age Group"
+label(to_table1_rf$sex) <- "Sex"
+label(to_table1_rf$race_ethnic) <- "Race/Ethnicity"
+label(to_table1_rf$grade) <- "Grade Group"
+label(to_table1_rf$service) <- "Service Branch"
+
+
+
+table1::table1(~ sex + age + grade + race_ethnic + bmi, data = to_table1_rf)
+table1::table1(~ bmi_cat, data = to_table1_rf)
+table1::table1(~ hor_country, data = to_table1_rf)
+table1::table1(~ hor_state, data = to_table1_rf)
+
+
+to_table1_rf
+
+
+
+
+cc_exposure_df %>% 
+    filter(case == 1) %>% 
+       mutate(bmi_calc = as.numeric(weight) / (as.numeric(height)^2) * 703, 
+            bmi_cat =
+             case_when(
+               bmi_calc < 18.5 ~ "underweight",
+               bmi_calc >= 18.5 & bmi_calc < 25 ~ "normal",
+               bmi_calc >= 25 & bmi_calc < 30 ~ "overweight",
+               bmi_calc >= 30 ~ "obese"
+             ),
+         sex = recode(sex,
+            "F" = "Female",
+            "M" = "Male",
+            "Z" = "Unknown")
+            ) %>% 
+  mutate_if(is.character, as.factor) %>% 
+            mutate(age = fct_relevel(age, ">=40", after = Inf)) %>% 
+  drop_na(bmi_cat) %>% 
+  ggplot(aes(x = wbgt_max, fill = bmi_cat)) +
+    geom_density(alpha = 0.9) +
+  theme_bw()
+
+```
+
+
+
+## Inputs
+
+```{r}
+
+selected_index <- "wbgt_max"
+
+# crossbasis options
+set_lag <- 5    # total number days lag to assess
+set_dr_df <- 5   # natural spline degrees of freedom for functional form of the dose-response curve
+set_lag_df <- 4   # natural spline degrees of freedom for functional form of the lag
+
+# crosspred options
+
+set_increment <- 1   # crosspred "by = "
+set_centered <- 60 # crosspred "cen= ", centered value for odds ratios 
+set_min_temp <- 32   # crosspred lower bound
+
+
+# crosspred upper-bound
+set_max_temp <- case_when(
+  selected_index %in% "wbgt_mean" ~ 90,
+  selected_index %in% "wbgt_max" ~ 110,
+  selected_index %in% "heat_index_mean" ~ 110,
+  selected_index %in% "heat_index_max" ~ 120,
+  selected_index %in% "tmp_f_mean" ~ 105,
+  selected_index %in% "tmp_f_max" ~ 120,
+    )
+
+set_max_temp
+
+
+# set max plot index value (approximate, or rounded-down from max value in dataset)
+set_max_plot_value <- case_when(
+  selected_index %in% "wbgt_mean" ~ 86,
+  selected_index %in% "wbgt_max" ~ 104,
+  selected_index %in% "heat_index_mean" ~ 104,
+  selected_index %in% "heat_index_max" ~ 116,
+  selected_index %in% "tmp_f_mean" ~ 98,
+  selected_index %in% "tmp_f_max" ~ 112,
+    )
+
+set_max_plot_value
+
+
+print_index <- case_when(
+  selected_index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
+  selected_index %in% "wbgt_max" ~ "Max WBGT (°F)",
+  selected_index %in% "heat_index_mean" ~ "Mean Heat Index (°F)",
+  selected_index %in% "heat_index_max" ~ "Max Heat Index (°F)",
+  selected_index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
+  selected_index %in% "tmp_f_max" ~ "Max Temperature (°F)",
+    )
+
+
+print_index
+
+
+
+```
+
+
+## Lag function
+```{r}
+
+# DLNM
+## Lags function
+
+lags <- seq(set_lag) # Number of lags
+
+lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"), 
+  sep = "_")
+
+lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
+
+```
+
+
+## Create lag matrix for selected index; join to case-crossover dataframe
+
+```{r, warning = FALSE}
+ # create lag matrix
+
+lag_matrix <-
+  daily_indices %>% 
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+      dplyr::select(installation, date, selected_index) %>% 
+   group_by(installation) %>% 
+   mutate_at(vars(selected_index), funs_(lag_fun)
+  )
+
+
+# join lag matrix to case-crossover dataframe
+
+cc_lag_matrix <-
+  cc_exposure_df %>% 
+    filter(year %in% 1998:2019) %>% 
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
+
+
+cc_lag_only <- 
+  cc_lag_matrix %>% 
+  dplyr::select(selected_index, lag_1:paste0("lag_", set_lag))
+```
+
+
+## Define DLNM cross-basis
+
+```{r, warning = FALSE}
+
+ 
+# Define dlnm cross-basis (penalized splines)
+
+index_cb <-
+    crossbasis(
+      cc_lag_only,    
+      lag = set_lag,    # of lags
+      argvar = list(fun = "ns", df = set_dr_df),    #  functional form of the dose-response curve
+      arglag = list(fun = "ns", df = set_lag_df))    #  functional form of the lags
+
+summary(index_cb)
+
+# run model and get prediction for selected_index
+
+
+index_dlnm <- survival::clogit(case ~ 
+                  index_cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "efron",
+                  data =  cc_exposure_df) 
+
+
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)
+
+
+summary(pred_dlnm)
+
+```
+
+## Nest by BMI
+
+
+```{r, warning = FALSE}
+
+
+# join lag matrix to case-crossover dataframe
+# mutate new list-column for lag only matrix
+
+assign(paste0(selected_index, "_nest_bmi"),
+  cc_exposure_df %>%
+    filter(year %in% 1998:2019) %>%
+    mutate(bmi_calc = as.numeric(weight) / (as.numeric(height)^2) * 703, 
+            bmi_cat =
+             case_when(
+               bmi_calc < 18.5 ~ "underweight",
+               bmi_calc >= 18.5 & bmi_calc < 25 ~ "normal",
+               bmi_calc >= 25 & bmi_calc < 30 ~ "overweight",
+               bmi_calc >= 30 ~ "obese"
+             )
+           ) %>% 
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>% 
+    group_by(bmi_cat) %>% 
+    nest() %>%
+    drop_na() %>% 
+    rename(cc_lag_matrix = data) %>% 
+    mutate(cc_lag_only =
+             map(cc_lag_matrix, ~ .x %>% dplyr::select(selected_index, lag_1:paste0("lag_", set_lag))),
+           index_cb = 
+             map(cc_lag_only, ~ crossbasis(
+                .x,    
+                lag = set_lag,    # of lags
+                argvar = list(fun = "ns", df = set_dr_df),    #  functional form of the dose-response curve
+                arglag = list(fun = "ns", df = set_lag_df))                
+              ),
+           index_dlnm = 
+             map2(.x = index_cb, .y = cc_lag_matrix,  ~ survival::clogit(case ~ 
+                    .x +  # lagged, nonlinear term for exposure
+                    strata(stratum), 
+                    method = "efron",
+                    data =  .y)),
+            pred_dlnm = 
+              map2(.x = index_cb, .y = index_dlnm, ~ crosspred(
+                .x, .y, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)))
+)  
+
+eval(parse(text = paste0(selected_index, "_nest_bmi"))) 
+
+
+
+# Plot cumulative lag
+
+to_plot_bmi<-
+  eval(parse(text = paste0(selected_index, "_nest_bmi"))) %>% 
+    mutate(to_plot = 
+             map(.x = pred_dlnm, ~ 
+                   data.frame(index = .x$predvar, 
+                      mean = .x$allRRfit,
+                      lower = .x$allRRlow,
+                      upper = .x$allRRhigh))) %>% 
+    dplyr::select(bmi_cat, to_plot) %>% 
+      unnest(to_plot) %>% 
+  filter(index <= set_max_plot_value)
+
+
+assign(paste0("plot_", selected_index, "_bmi"),
+  ggplot(data = to_plot_bmi, aes(x = index, y = mean, ymin = lower, ymax = upper, color = bmi_cat, fill = bmi_cat)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.1, colour = NA) +
+    geom_line(size = 1.25) +
+    xlab(print_index) +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(set_centered, set_max_plot_value), ylim = c(NA, max(to_plot_bmi$mean, na.rm = TRUE))) +
+    theme_bw() 
+)
+
+#write_rds(eval(parse(text = paste0("plot_", selected_index, "_bmi"))), 
+#  file = paste0("output/", paste0("plot_", selected_index, "_bmi"), ".rds"))
+
+
+eval(parse(text = paste0("plot_", selected_index, "_bmi"))) +
+    ggtitle(paste0("Daily ", print_index, " and BMI association \ncumulative over 0-5 days lag by BMI category")) +
+    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
+    theme(plot.caption = element_text(hjust = 0)) 
+
+
+```
+

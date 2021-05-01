@@ -35,6 +35,9 @@ library(fitdistrplus)
 library(viridis)
 library(janitor)
 library(patchwork)
+library(Hmisc)
+library(patchwork)
+
 ```
 
 
@@ -288,7 +291,7 @@ label(to_table1$source) <- "Encounter Type"
 table1::table1(~ hsi + source + service + region | case, data = to_table1)
 
 
-
+table1::table1(~ hsi + source + region | case, data = to_table1)
 
 
 
@@ -355,6 +358,74 @@ cc_exposure_df %>%
 ## Scatterplot (correlogram) by indices -- Upper temperature range
 Filter to case days with WBGT-Max greater than 85 deg F
 
+
+
+Correlations
+
+```{r}
+
+# With cutoff Above 85 deg max WBGT
+index_corr <-
+  cc_exposure_df %>% 
+      filter(case == 1) %>% 
+    dplyr::select(tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>%
+    filter(wbgt_max > 85) %>%
+    rename("Max Temperature" = tmp_f_max,
+           "Max Heat Index" = heat_index_max,
+           "Max WBGT" = wbgt_max,
+           "Mean Temperature" = tmp_f_mean,
+           "Mean Heat Index" = heat_index_mean,
+           "Mean WBGT" = wbgt_mean) %>% 
+    as.matrix() %>% 
+    Hmisc::rcorr(type = "pearson")
+
+index_corr
+
+# Format/flatten corr matrix
+
+# cormat : matrix of the correlation coefficients
+# pmat : matrix of the correlation p-values
+
+flatten_corr_matrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+
+
+flatten_corr_matrix(index_corr$r, index_corr$P)
+
+
+
+# No temperature cutoff (all case days)
+
+index_corr_all <-
+  cc_exposure_df %>% 
+      filter(case == 1) %>% 
+    dplyr::select(tmp_f_mean, tmp_f_max, heat_index_mean, heat_index_max, wbgt_mean, wbgt_max) %>%
+    rename("Max Temperature" = tmp_f_max,
+           "Max Heat Index" = heat_index_max,
+           "Max WBGT" = wbgt_max,
+           "Mean Temperature" = tmp_f_mean,
+           "Mean Heat Index" = heat_index_mean,
+           "Mean WBGT" = wbgt_mean) %>% 
+    as.matrix() %>% 
+    Hmisc::rcorr(type = "pearson")
+
+index_corr_all
+
+flatten_corr_matrix(index_corr_all$r, index_corr_all$P)
+```
+
+
+
+
+
+
 ```{r}
 
 cc_exposure_df %>% 
@@ -408,13 +479,21 @@ to_scatter <-
             by = "installation_name") %>% 
   mutate_if(is.character, as.factor) %>% 
             mutate(age = fct_relevel(age, ">=40", after = Inf)) %>% 
-   rename("Max Temp" = tmp_f_max,
-         "Max HI" = heat_index_max,
+   rename("Max Temperature" = tmp_f_max,
+         "Max Heat Index" = heat_index_max,
          "Max WBGT" = wbgt_max,
-         "Mean Temp" = tmp_f_mean,
-         "Mean HI" = heat_index_mean,
+         "Mean Temperature" = tmp_f_mean,
+         "Mean Heat Index" = heat_index_mean,
          "Mean WBGT" = wbgt_mean,
          "Region" = region) 
+
+
+
+to_scatter_cutoff <-
+  to_scatter %>% 
+        filter(case %in% "Case",
+           `Max WBGT` > 85)
+
 
 
 
@@ -422,35 +501,48 @@ to_scatter <-
 
   # set alpha value
 alpha_val <- 0.6
+ellipse_type <- "t"
 
 s1 <-
 to_scatter %>% 
     filter(case %in% "Case",
            `Max WBGT` > 85) %>% 
-  dplyr::select(`Mean Temp`, `Mean HI`, `Mean WBGT`, Region) %>%
-  ggplot(aes(x = `Mean Temp`, y = `Mean HI`, color = Region)) +
-    geom_point(alpha = alpha_val) +
-  #  geom_smooth(method = "lm", se = FALSE) +
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temperature`, y = `Mean Heat Index`)) +
+    geom_point(alpha = alpha_val, aes(color = Region)) +
+    geom_smooth(method = "lm", se = FALSE, color = "black") +
+    stat_ellipse(type = ellipse_type, aes(color = Region)) +
+    annotate(x = 90, y = 70, 
+         label=paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean Heat Index`),2)), 
+         geom = "text", size = 4) +
      theme_bw()
 
 s2 <-
 to_scatter %>% 
     filter(case %in% "Case",
                    `Max WBGT` > 85) %>% 
-  dplyr::select(`Mean Temp`, `Mean HI`, `Mean WBGT`, Region) %>%
-  ggplot(aes(x = `Mean Temp`, y = `Mean WBGT`, color = Region)) +
-    geom_point(alpha = alpha_val) +
-  #  geom_smooth(method = "lm", se = FALSE) +
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temperature`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+  annotate(x = 95, y = 65, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean WBGT`),2)), 
+         geom = "text", size = 4) +
      theme_bw()
 
 s3 <-
 to_scatter %>% 
     filter(case %in% "Case",
                    `Max WBGT` > 85) %>%  
-  dplyr::select(`Mean Temp`, `Mean HI`, `Mean WBGT`, Region) %>%
-  ggplot(aes(x = `Mean HI`, y = `Mean WBGT`, color = Region)) +
-    geom_point(alpha = alpha_val) +
-   # geom_smooth(method = "lm", se = FALSE) +
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Heat Index`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+     annotate(x = 95, y = 65, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Heat Index`, to_scatter_cutoff$`Mean WBGT`),2)), 
+         geom = "text", size = 4) +
      theme_bw()
 
 
@@ -459,42 +551,57 @@ to_scatter %>%
 s4 <-
 to_scatter %>% 
     filter(case %in% "Case") %>% 
-  dplyr::select(`Max Temp`, `Max HI`, `Max WBGT`, Region) %>%
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
   filter(`Max WBGT` > 85) %>%
-  ggplot(aes(x = `Max Temp`, y = `Max HI`, color = Region)) +
-    geom_point(alpha = alpha_val) +
-  #  geom_smooth(method = "lm", se = FALSE) +
+  ggplot(aes(x = `Max Temperature`, y = `Max Heat Index`)) +
+    geom_point(alpha = alpha_val, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+   annotate(x = 105, y = 80, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max Heat Index`),2)), 
+         geom = "text", size = 4) +
      theme_bw()
 
 
 s5 <-
 to_scatter %>% 
     filter(case %in% "Case") %>% 
-  dplyr::select(`Max Temp`, `Max HI`, `Max WBGT`, Region) %>%
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
   filter(`Max WBGT` > 85) %>%
-  ggplot(aes(x = `Max Temp`, y = `Max WBGT`, color = Region)) +
-    geom_point(alpha = alpha_val) +
-  #  geom_smooth(method = "lm", se = FALSE) +
+  ggplot(aes(x = `Max Temperature`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, aes(color = Region)) +
+    geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+     annotate(x = 77, y = 100, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max WBGT`),2)), 
+         geom = "text", size = 4) +
      theme_bw()
 
 s6 <-
 to_scatter %>% 
     filter(case %in% "Case") %>% 
-  dplyr::select(`Max Temp`, `Max HI`, `Max WBGT`, Region) %>%
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
   filter(`Max WBGT` > 85) %>%
-  ggplot(aes(x = `Max HI`, y = `Max WBGT`, color = Region)) +
-    geom_point(alpha = alpha_val) +
-   # geom_smooth(method = "lm", se = FALSE) +
+  ggplot(aes(x = `Max Heat Index`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+   annotate(x = 80, y = 100, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Heat Index`, to_scatter_cutoff$`Max WBGT`),2)), 
+         geom = "text", size = 4) +
      theme_bw()
 
 
 
 # patchwork grid plot
 
-(s1 | s2 | s3) / (s4 | s5 | s6) + 
-  plot_layout(guides = "collect") + 
-  plot_annotation(tag_levels = 'A') & 
-  theme(legend.position = "bottom")
+plot_index_pairs_scatter <-
+  (s1 | s2 | s3) / (s4 | s5 | s6) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_index_pairs_scatter 
 
 ggsave("output/plot_index_pairs_scatter.png")
 
@@ -684,6 +791,8 @@ to_density_plot <-
 #check for missing values
   to_density_plot[!complete.cases(to_density_plot),] 
   
+  
+  
 to_density_plot %>%   
   ggplot(aes(x = Value, fill = Index, colour = Index)) +
       geom_density(alpha = 0.5) +
@@ -691,6 +800,8 @@ to_density_plot %>%
       theme_bw() +
   labs(title = "Density plot of daily indices on all case days, 1998-2019",
        x = "Daily Index Value (°F)")
+
+
 
 
 to_density_plot %>% 
@@ -710,8 +821,8 @@ to_density_plot %>%
 
 to_density_plot_all <-
   cc_exposure_df %>%
-     mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
-           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max)) %>% 
+    # mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
+    #       "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max)) %>% 
     filter(case == 1) %>% 
     dplyr::select(installation_name, d_event, tmp_f_mean, tmp_f_max,
                   heat_index_mean, heat_index_max,
@@ -730,23 +841,119 @@ to_density_plot_all <-
       type = fct_relevel(type, "Max", "Mean")
     ) 
   
+
+density_plot_panel <-  
+  to_density_plot_all %>%   
+      ggplot(aes(x = Value, fill = type, colour = type)) +
+        facet_wrap(~index) +
+        geom_density(alpha = 0.5) +
+        geom_rug() +
+        theme_bw() +
+        labs(x = "Daily Index Value (°F)") +
+        theme(strip.text.x = element_text(
+              size = 12, face = "bold"),
+          legend.position = "bottom") +
+        scale_x_continuous(breaks = seq(from = 0, to = 120, by = 20))
   
-to_density_plot_all %>%   
-    ggplot(aes(x = Value, fill = type, colour = type)) +
-      facet_wrap(~index) +
-      geom_density(alpha = 0.5) +
-      geom_rug() +
-      theme_bw() +
-      labs(x = "Daily Index Value (°F)") +
-      theme(strip.text.x = element_text(
-            size = 12, face = "bold"),
-        legend.position = "bottom") +
-      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 20))
-  
-  
+
+
+# ggplot color codes: #00BFC4 MEAN    #F8766D MAX
+ggplot_build(density_plot_panel)$data  
 #title = "Density plot of daily indices on all case days, 1998-2019"
 
 ```
+
+
+### Patchwork density plots
+```{r}
+
+mean_median <- 
+  to_density_plot_all %>% 
+  group_by(index, type) %>% 
+  summarise(mean = mean(Value),
+            median = median(Value)) 
+
+
+density_temp <-
+  to_density_plot_all %>% 
+    filter(index %in% "Temperature") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily Temperature (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10)) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.08, by = 0.02), limits = c(0.00, 0.08))
+
+
+
+density_hi <-
+  to_density_plot_all %>% 
+    filter(index %in% "Heat Index") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily Heat Index (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10)) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.08, by = 0.02), limits = c(0.00, 0.08))
+
+density_wbgt <-
+  to_density_plot_all %>% 
+    filter(index %in% "WBGT") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily WBGT (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10)) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.08, by = 0.02), limits = c(0.00, 0.08))
+
+
+# patchwork grid plot
+
+plot_density_patch <-
+  (density_temp | density_hi | density_wbgt) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_density_patch
+
+ggsave("output/plot_density_patch.png")
+
+```
+
+
+
+
 
 
 ## Summary table: All Indices

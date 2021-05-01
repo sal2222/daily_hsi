@@ -26,6 +26,8 @@ library(magick)
 library(av)
 library(ggrepel)
 
+
+citation("dlnm")
 ```
 
 ## Input data
@@ -78,7 +80,7 @@ daily_indices <-
 
 ```{r}
 
-selected_index <- "wbgt_mean"
+selected_index <- "tmp_f_max"
 
 # crossbasis options
 set_lag <- 5    # total number days lag to assess
@@ -88,7 +90,7 @@ set_lag_df <- 4   # natural spline degrees of freedom for functional form of the
 # crosspred options
 
 set_increment <- 1   # crosspred "by = "
-set_centered <- 60 # crosspred "cen= ", centered value for odds ratios 
+set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))))       #60     # crosspred "cen= ", centered value for odds ratios 
 set_min_temp <- 32   # crosspred lower bound
 
 
@@ -269,7 +271,7 @@ assign(paste0("plot_", selected_index),
     geom_line(size = 1.25) +
     xlab(print_index) +
     ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(set_centered, set_max_plot_value)) +
+    coord_cartesian(xlim = c(NA, set_max_plot_value)) +
     theme_bw() 
   )
     

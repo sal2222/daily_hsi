@@ -53,5 +53,32 @@
   - monthly indices
   - annual indices
   - daily anomalies (mean daily temp, heat index, wet bulb, WBGT)
-- 
+
+# descriptive
+
+  - outcome tables (counts)
+  - exposure scatterplots, density plots,  correlations
+  - exposure summary tables
+  - CONUS location map
+
+
+# master_function  
+
+- constructs lag matrix
+- defines DLNM cross-basis
+- outputs odds ratio tables and plots, cumulative and by lag
+- stratified models by: region, service branch, time-in-season, HSI type, encounter source, installation
+
+# master_fun_map
+
+- similar to `master_function`, but set to map across all indices, rather than running each individually
+
+# figures
+
+- patchwork panel plots of all indices
+- combined OR tables
+
+# sensitivity
+
+- condensed version of `master_function` to examine different inputs (e.g. vary degrees of freedom)
     

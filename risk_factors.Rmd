@@ -97,12 +97,39 @@ cc_exposure_df <-
 
 
 
-index_dlnm <- survival::clogit(case ~ 
-                  ns(selected_index, df = 5) +
-                  sex + sex * selected_index +
-                  race + race * selected_index +
-                  grade + grade * selected_index +
-                  bmi_calc + bmi_calc * selected_index +
+index_rf <- survival::clogit(case ~ 
+                  ns(wbgt_max, df = 4) +
+                  sex + sex * wbgt_max +
+                  race + race * wbgt_max +
+                  grade + grade * wbgt_max +
+                  bmi_calc + bmi_calc * wbgt_max +
+                  strata(stratum), 
+                  method = "exact",
+                  data =  cc_exposure_df) 
+
+
+survival::clogit(case ~ 
+                  wbgt_max +
+                  sex + sex * wbgt_max +
+                  race + race * wbgt_max +
+                  grade + grade * wbgt_max +
+                  bmi_calc + bmi_calc * wbgt_max +
+                  strata(stratum), 
+                  method = "exact",
+                  data =  cc_exposure_df) 
+
+
+survival::clogit(case ~ 
+                  wbgt_max +
+                  grade + grade * wbgt_max +
+                  strata(stratum), 
+                  method = "exact",
+                  data =  cc_exposure_df) 
+
+
+survival::clogit(case ~ 
+                  wbgt_max +
+                  sex +
                   strata(stratum), 
                   method = "exact",
                   data =  cc_exposure_df) 

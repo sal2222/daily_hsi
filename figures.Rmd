@@ -17,6 +17,64 @@ library(patchwork)
 ```
 
 
+
+
+## Single patchwork plot
+
+
+```{r, eval = FALSE}
+
+# Read in ggplot objects
+
+plot_mean_temp <-
+  read_rds("output/plot_tmp_f_mean.rds")
+
+plot_max_temp <-
+  read_rds("output/plot_tmp_f_max.rds")
+
+plot_mean_hi <-
+  read_rds("output/plot_heat_index_mean.rds")
+
+plot_max_hi <-
+  read_rds("output/plot_heat_index_max.rds")
+
+plot_mean_wbgt <-
+  read_rds("output/plot_wbgt_mean.rds")
+
+plot_max_wbgt <-
+  read_rds("output/plot_wbgt_max.rds")
+
+
+
+plot_df_4_4 <-
+  (plot_mean_temp | plot_mean_hi | plot_mean_wbgt) / 
+  (plot_max_temp | plot_max_hi | plot_max_wbgt) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = "bottom")
+
+
+ggsave("output/plot_region_df_4_4.png")
+
+plot_df_4_4
+
+```
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Patchwork plots for combined indices
 
 
@@ -29,7 +87,7 @@ suffix <- c("", "_lag_slice", "_lag_slice_cum", "_region", "_service",
 
 
 
-patchwork_df_5_4 <-
+patchwork_df_4_4 <-
   purrr::map(.x = suffix,
       ~(read_rds(paste0("output/plot_", selected_index[1], .x, ".rds")) |   
          read_rds(paste0("output/plot_", selected_index[2], .x, ".rds")) |  
@@ -44,13 +102,13 @@ patchwork_df_5_4 <-
   )
 
 
-write_rds(patchwork_df_5_4, "output/patchwork_df_5_4.rds")     
+write_rds(patchwork_df_4_4, "output/patchwork_df_4_4.rds")     
 
 
-patchwork_df_5_4 <-
+patchwork_df_4_4 <-
   read_rds("output/patchwork_df_5_4.rds")
 
-patchwork_df_5_4[3]
+patchwork_df_4_4[3]
 
       
 

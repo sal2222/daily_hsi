@@ -27,7 +27,9 @@ library(av)
 library(ggrepel)
 
 
+citation()
 citation("dlnm")
+citation("survival")
 ```
 
 ## Input data
@@ -92,47 +94,47 @@ set_lag_df <- 4   # natural spline degrees of freedom for functional form of the
 # crosspred options
 
 set_increment <- 1   # crosspred "by = "
-set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))))       #60     # crosspred "cen= ", centered value for odds ratios 
+# set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))))       #60     # crosspred "cen= ", centered value for odds ratios 
 set_min_temp <- 32   # crosspred lower bound
 
 
-# crosspred upper-bound
-set_max_temp <- case_when(
-  selected_index %in% "wbgt_mean" ~ 90,
-  selected_index %in% "wbgt_max" ~ 110,
-  selected_index %in% "heat_index_mean" ~ 110,
-  selected_index %in% "heat_index_max" ~ 120,
-  selected_index %in% "tmp_f_mean" ~ 105,
-  selected_index %in% "tmp_f_max" ~ 120,
-    )
-
-set_max_temp
-
-
-# set max plot index value (approximate, or rounded-down from max value in dataset)
-set_max_plot_value <- case_when(
-  selected_index %in% "wbgt_mean" ~ 86,
-  selected_index %in% "wbgt_max" ~ 104,
-  selected_index %in% "heat_index_mean" ~ 104,
-  selected_index %in% "heat_index_max" ~ 116,
-  selected_index %in% "tmp_f_mean" ~ 98,
-  selected_index %in% "tmp_f_max" ~ 112,
-    )
-
-set_max_plot_value
+# crosspred upper-bound: move into function
+# set_max_temp <- case_when(
+#   selected_index %in% "wbgt_mean" ~ 90,
+#   selected_index %in% "wbgt_max" ~ 110,
+#   selected_index %in% "heat_index_mean" ~ 110,
+#   selected_index %in% "heat_index_max" ~ 120,
+#   selected_index %in% "tmp_f_mean" ~ 105,
+#   selected_index %in% "tmp_f_max" ~ 120,
+#     )
+# 
+# set_max_temp
 
 
-print_index <- case_when(
-  selected_index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
-  selected_index %in% "wbgt_max" ~ "Max WBGT (°F)",
-  selected_index %in% "heat_index_mean" ~ "Mean Heat Index (°F)",
-  selected_index %in% "heat_index_max" ~ "Max Heat Index (°F)",
-  selected_index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
-  selected_index %in% "tmp_f_max" ~ "Max Temperature (°F)",
-    )
-
-
-print_index
+# # set max plot index value (approximate, or rounded-down from max value in dataset)
+# set_max_plot_value <- case_when(
+#   selected_index %in% "wbgt_mean" ~ 86,
+#   selected_index %in% "wbgt_max" ~ 104,
+#   selected_index %in% "heat_index_mean" ~ 104,
+#   selected_index %in% "heat_index_max" ~ 116,
+#   selected_index %in% "tmp_f_mean" ~ 98,
+#   selected_index %in% "tmp_f_max" ~ 112,
+#     )
+# 
+# set_max_plot_value
+# 
+# 
+# print_index <- case_when(
+#   selected_index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
+#   selected_index %in% "wbgt_max" ~ "Max WBGT (°F)",
+#   selected_index %in% "heat_index_mean" ~ "Mean Heat Index (°F)",
+#   selected_index %in% "heat_index_max" ~ "Max Heat Index (°F)",
+#   selected_index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
+#   selected_index %in% "tmp_f_max" ~ "Max Temperature (°F)",
+#     )
+# 
+# 
+# print_index
 
 
 
@@ -152,12 +154,6 @@ lag_names <- paste("lag", formatC(lags, width = nchar(max(lags)), flag = "0"),
 
 lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
 
-```
-
-
-```{r}
-
-map(.x = selected_index, cc_dlnm_fun) 
 ```
 
 
@@ -216,6 +212,47 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
+
+# centered value from index median
+
+set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))))  
+
+# max_temp based on selected index
+
+set_max_temp <- case_when(
+  selected_index %in% "wbgt_mean" ~ 90,
+  selected_index %in% "wbgt_max" ~ 110,
+  selected_index %in% "heat_index_mean" ~ 110,
+  selected_index %in% "heat_index_max" ~ 120,
+  selected_index %in% "tmp_f_mean" ~ 105,
+  selected_index %in% "tmp_f_max" ~ 120,
+    )
+
+
+# set max plot index value (approximate, or rounded-down from max value in dataset)
+set_max_plot_value <- case_when(
+  selected_index %in% "wbgt_mean" ~ 86,
+  selected_index %in% "wbgt_max" ~ 104,
+  selected_index %in% "heat_index_mean" ~ 104,
+  selected_index %in% "heat_index_max" ~ 116,
+  selected_index %in% "tmp_f_mean" ~ 98,
+  selected_index %in% "tmp_f_max" ~ 112,
+    )
+
+
+
+print_index <- case_when(
+  selected_index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
+  selected_index %in% "wbgt_max" ~ "Max WBGT (°F)",
+  selected_index %in% "heat_index_mean" ~ "Mean Heat Index (°F)",
+  selected_index %in% "heat_index_max" ~ "Max Heat Index (°F)",
+  selected_index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
+  selected_index %in% "tmp_f_max" ~ "Max Temperature (°F)",
+    )
+
+
+# DLNM cross-prediction
+
 pred_dlnm <- crosspred(index_cb, index_dlnm, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)
 
 
@@ -269,8 +306,14 @@ assign(paste0("plot_", selected_index),
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
     geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
     geom_line(size = 1.25) +
+    # geom_point(aes(x = set_centered, y = 1), size = 2.5) +
+    # geom_text(aes(x = set_centered, y = 1, label = format(round(set_centered, digits = 1), nsmall = 1)),
+    #           nudge_x = -2,
+    #           nudge_y = 0.25,
+    #           size = 4) +
     xlab(print_index) +
     ylab('Odds Ratio') +
+    labs(caption = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
     coord_cartesian(xlim = c(NA, set_max_plot_value)) +
     theme_bw() 
   )
@@ -290,4 +333,372 @@ eval(parse(text = paste0("plot_", selected_index))) +
 
 ```
 
+
+```{r}
+
+purrr::map(selected_index, cc_dlnm_fun) 
+
+
+```
+
+## Lags
+
+```{r}
+
+cc_dlnm_fun_lag <-  function(selected_index) {
+
+lag_matrix <-
+  daily_indices %>% 
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+      dplyr::select(installation, date, selected_index) %>% 
+   group_by(installation) %>% 
+   mutate_at(vars(selected_index), funs_(lag_fun)
+  )
+
+
+# join lag matrix to case-crossover dataframe
+
+cc_lag_matrix <-
+  cc_exposure_df %>% 
+    filter(year %in% 1998:2019) %>% 
+    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
+
+
+cc_lag_only <- 
+  cc_lag_matrix %>% 
+  dplyr::select(selected_index, lag_1:paste0("lag_", set_lag))
+
+## Define DLNM cross-basis
+
+ 
+# Define dlnm cross-basis (penalized splines)
+
+index_cb <-
+    crossbasis(
+      cc_lag_only,    
+      lag = set_lag,    # of lags
+      argvar = list(fun = "ns", df = set_dr_df),    #  functional form of the dose-response curve
+      arglag = list(fun = "ns", df = set_lag_df))    #  functional form of the lags
+
+summary(index_cb)
+
+# run model and get prediction for selected_index
+
+
+index_dlnm <- survival::clogit(case ~ 
+                  index_cb +  # lagged, nonlinear term for exposure
+                  strata(stratum), 
+                  method = "exact",
+                  data =  cc_exposure_df) 
+
+
+
+# centered value from index median
+
+set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))))  
+
+# max_temp based on selected index
+
+set_max_temp <- case_when(
+  selected_index %in% "wbgt_mean" ~ 90,
+  selected_index %in% "wbgt_max" ~ 110,
+  selected_index %in% "heat_index_mean" ~ 110,
+  selected_index %in% "heat_index_max" ~ 120,
+  selected_index %in% "tmp_f_mean" ~ 105,
+  selected_index %in% "tmp_f_max" ~ 120,
+    )
+
+
+# set max plot index value (approximate, or rounded-down from max value in dataset)
+set_max_plot_value <- case_when(
+  selected_index %in% "wbgt_mean" ~ 86,
+  selected_index %in% "wbgt_max" ~ 104,
+  selected_index %in% "heat_index_mean" ~ 104,
+  selected_index %in% "heat_index_max" ~ 116,
+  selected_index %in% "tmp_f_mean" ~ 98,
+  selected_index %in% "tmp_f_max" ~ 112,
+    )
+
+
+
+print_index <- case_when(
+  selected_index %in% "wbgt_mean" ~ "Mean WBGT (°F)",
+  selected_index %in% "wbgt_max" ~ "Max WBGT (°F)",
+  selected_index %in% "heat_index_mean" ~ "Mean Heat Index (°F)",
+  selected_index %in% "heat_index_max" ~ "Max Heat Index (°F)",
+  selected_index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
+  selected_index %in% "tmp_f_max" ~ "Max Temperature (°F)",
+    )
+
+
+# DLNM cross-prediction
+
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)
+
+
+summary(pred_dlnm)
+
+
+
+
+
+# Slice by lag
+    # matRRfit: matrix of exponentiated specific associations from matfit
+    # matfit: matrices of predictions and standard errors at the chosen combinations of predictor and lag values
+
+
+to_plot_slice <- 
+  pred_dlnm$matRRfit %>% 
+    as.data.frame() %>% 
+    rownames_to_column() %>% 
+    rename(index_value = rowname) %>% 
+    as_tibble() %>% 
+    pivot_longer(-index_value, names_to = "lag", values_to = "OR") %>% 
+  bind_cols(
+
+    pred_dlnm$matRRlow %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_low") %>% 
+      dplyr::select(OR_low)
+  ) %>% 
+  bind_cols(
+    
+    pred_dlnm$matRRhigh %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_high") %>% 
+      dplyr::select(OR_high)
+) %>% 
+   mutate(index_value = as.numeric(index_value))
+
+
+
+
+
+
+
+assign(paste0("plot_", selected_index, "_lag_slice"),
+  ggplot(data = to_plot_slice, aes(x = index_value, color = lag)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+    geom_line(size = 1.25) +
+    # geom_point(aes(x = set_centered, y = 1), size = 2.5) +
+    # geom_text(aes(x = set_centered, y = 1, label = format(round(set_centered, digits = 1), nsmall = 1)),
+    #           nudge_x = -2,
+    #           nudge_y = 0.25,
+    #           size = 4) +
+    xlab(print_index) +
+    ylab('Odds Ratio') +
+    labs(caption = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
+    coord_cartesian(xlim = c(NA, set_max_plot_value)) +
+    theme_bw() 
+)
+  
+  
+write_rds(eval(parse(text = paste0("plot_", selected_index, "_lag_slice"))), 
+  file = paste0("output/", paste0("plot_", selected_index, "_lag_slice"), ".rds"))
+
+
+eval(parse(text = paste0("plot_", selected_index, "_lag_slice"))) 
+
+
+
+# Cumulative by lag  
+  
+    # cumRRfit: matrix of exponentiated incremental cumulative associations from cumfit
+    # cumfit: matrices of incremental cumulative predicted associations along lags and related standard errors at the chosen combinations of predictor and (integer) lag values
+  
+  
+to_plot_slice_cum <- 
+  pred_dlnm$cumRRfit %>% 
+    as.data.frame() %>% 
+    rownames_to_column() %>% 
+    rename(index_value = rowname) %>% 
+    as_tibble() %>% 
+    pivot_longer(-index_value, names_to = "lag", values_to = "OR") %>% 
+  bind_cols(
+
+    pred_dlnm$cumRRlow %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_low") %>% 
+      dplyr::select(OR_low)
+  ) %>% 
+  bind_cols(
+    
+    pred_dlnm$cumRRhigh %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_high") %>% 
+      dplyr::select(OR_high)
+) %>% 
+  mutate(index_value = as.numeric(index_value))
+
+
+to_plot_slice_cum
+
+assign(paste0("plot_", selected_index, "_lag_slice_cum"),
+  ggplot(data = to_plot_slice_cum, aes(x = index_value, color = lag)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_ribbon(alpha = 0.2, fill = "cadetblue", color = "cadetblue") +
+    geom_line(size = 1.25) +
+    # geom_point(aes(x = set_centered, y = 1), size = 2.5) +
+    # geom_text(aes(x = set_centered, y = 1, label = format(round(set_centered, digits = 1), nsmall = 1)),
+    #           nudge_x = -2,
+    #           nudge_y = 0.25,
+    #           size = 4) +
+    xlab(print_index) +
+    ylab('Odds Ratio') +
+    labs(caption = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
+    coord_cartesian(xlim = c(NA, set_max_plot_value)) +
+    theme_bw() 
+)
+
+
+
+write_rds(eval(parse(text = paste0("plot_", selected_index, "_lag_slice_cum"))), 
+  file = paste0("output/", paste0("plot_", selected_index, "_lag_slice_cum"), ".rds"))
+
+
+paste0("plot_", selected_index, "_lag_slice_cum")
+
+eval(parse(text = paste0("plot_", selected_index, "_lag_slice_cum"))) 
+
+}
+```
+
+# Slice by lag
+    # matRRfit: matrix of exponentiated specific associations from matfit
+    # matfit: matrices of predictions and standard errors at the chosen combinations of predictor and lag values
+
+
+to_plot_slice <- 
+  pred_dlnm$matRRfit %>% 
+    as.data.frame() %>% 
+    rownames_to_column() %>% 
+    rename(index_value = rowname) %>% 
+    as_tibble() %>% 
+    pivot_longer(-index_value, names_to = "lag", values_to = "OR") %>% 
+  bind_cols(
+
+    pred_dlnm$matRRlow %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_low") %>% 
+      dplyr::select(OR_low)
+  ) %>% 
+  bind_cols(
+    
+    pred_dlnm$matRRhigh %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_high") %>% 
+      dplyr::select(OR_high)
+) %>% 
+   mutate(index_value = as.numeric(index_value))
+
+
+
+
+
+
+
+assign(paste0("plot_", selected_index, "_lag_slice"),
+  ggplot(data = to_plot_slice, aes(x = index_value, color = lag)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_point(aes(y = OR)) +
+    geom_line(aes(y = OR), se = FALSE, size = 1.2, method = "loess") +
+    geom_line(aes(y = OR_low), se = FALSE, size = 0.5, linetype = "dashed") +
+    geom_line(aes(y = OR_high), se = FALSE, size = 0.5, linetype = "dashed") +
+    xlab(print_index) +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(set_centered, set_max_plot_value),
+                    ylim = c(NA, max(to_plot_slice$OR, na.rm = TRUE))) +
+    theme_bw() 
+)
+  
+  
+write_rds(eval(parse(text = paste0("plot_", selected_index, "_lag_slice"))), 
+  file = paste0("output/", paste0("plot_", selected_index, "_lag_slice"), ".rds"))
+
+
+eval(parse(text = paste0("plot_", selected_index, "_lag_slice"))) 
+
+
+
+# Cumulative by lag  
+  
+    # cumRRfit: matrix of exponentiated incremental cumulative associations from cumfit
+    # cumfit: matrices of incremental cumulative predicted associations along lags and related standard errors at the chosen combinations of predictor and (integer) lag values
+  
+  
+to_plot_slice_cum <- 
+  pred_dlnm$cumRRfit %>% 
+    as.data.frame() %>% 
+    rownames_to_column() %>% 
+    rename(index_value = rowname) %>% 
+    as_tibble() %>% 
+    pivot_longer(-index_value, names_to = "lag", values_to = "OR") %>% 
+  bind_cols(
+
+    pred_dlnm$cumRRlow %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_low") %>% 
+      dplyr::select(OR_low)
+  ) %>% 
+  bind_cols(
+    
+    pred_dlnm$cumRRhigh %>% 
+        as.data.frame() %>% 
+        rownames_to_column() %>% 
+        rename(index_value = rowname) %>% 
+        as_tibble() %>% 
+        pivot_longer(-index_value, names_to = "lag", values_to = "OR_high") %>% 
+      dplyr::select(OR_high)
+) %>% 
+  mutate(index_value = as.numeric(index_value))
+
+
+to_plot_slice_cum
+
+assign(paste0("plot_", selected_index, "_lag_slice_cum"),
+  ggplot(data = to_plot_slice_cum, aes(x = index_value, color = lag)) +
+    geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
+    geom_point(aes(y = OR)) +
+    geom_line(aes(y = OR), se = FALSE, size = 1.2) +
+    geom_line(aes(y = OR_low), se = FALSE, size = 0.5, linetype = "dashed", method = "loess") +
+    geom_line(aes(y = OR_high), se = FALSE, size = 0.5, linetype = "dashed", method = "loess") +
+    xlab(print_index) +
+    ylab('Odds Ratio') +
+    coord_cartesian(xlim = c(set_centered, set_max_plot_value),
+                    ylim = c(NA, max(to_plot_slice_cum$OR, na.rm = TRUE))) +
+    theme_bw() 
+)
+
+
+
+write_rds(eval(parse(text = paste0("plot_", selected_index, "_lag_slice_cum"))), 
+  file = paste0("output/", paste0("plot_", selected_index, "_lag_slice_cum"), ".rds"))
+
+
+paste0("plot_", selected_index, "_lag_slice_cum")
+
+eval(parse(text = paste0("plot_", selected_index, "_lag_slice_cum"))) 
 

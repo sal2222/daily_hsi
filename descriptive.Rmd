@@ -37,6 +37,8 @@ library(janitor)
 library(patchwork)
 library(Hmisc)
 library(patchwork)
+library(mapsf)
+library(shadowtext)
 
 ```
 
@@ -947,7 +949,7 @@ plot_density_patch <-
 
 plot_density_patch
 
-ggsave("output/plot_density_patch.png")
+ggsave("output/plot_density_patch.png", width = 9.5, height = 4)
 
 ```
 
@@ -1092,7 +1094,9 @@ sites <- data.frame(names = mapping_df$installation_name,
                     longitude = mapping_df$longitude,
                     latitude = mapping_df$latitude,
                     region = mapping_df$region,
-                    service = mapping_df$service)
+                    service = mapping_df$service, 
+                    cases = mapping_df$A + mapping_df$C + mapping_df$F +
+                      mapping_df$M + mapping_df$N)
 
 
 sites <- st_as_sf(sites, coords = c("longitude", "latitude"), remove = FALSE, 
@@ -1241,6 +1245,66 @@ ggplot(data = usa) +
 
 
 ```
+
+
+## Alternalte map
+
+
+```{r}
+
+sites <-
+  sites %>% 
+    mutate(names = recode(names,
+                     "Eglin Afb" = "Eglin AFB",
+                     "Jbsa" = "JBSA",
+                     "Ntc And Fort Irwin" = "Fort Irwin",
+                      "Mcrd San Diego" = "MCRD San Diego"))
+
+
+
+ggplot(data = states) +
+    geom_sf(fill = "ivory") +
+    geom_point(data = sites, aes(x = longitude, y = latitude, fill = service, size = cases), color = "black", pch = 21) +
+    geom_shadowtext(data = clim_region_union, aes(x = lon, y = lat, label = climate_region), fontface = "bold", size = 6) +
+    geom_text_repel(data = sites, aes(x = longitude, y = latitude, label = names), fontface = "bold", color = "black", size = 3,nudge_y = 1, force = 2) +
+    geom_sf(data = clim_region_union, fill = "transparent", size = 1.02) +
+  #  coord_sf(xlim = c(-124, -72), ylim = c(25, 45), expand = FALSE) +
+  # annotation_scale(location = "bl", width_hint = 0.5) +
+   annotation_north_arrow(location = "bl", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_fancy_orienteering) +
+    scale_size_continuous(range = c(4, 16)) +
+    theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
+        size = 0.5), panel.background = element_rect(fill = "white")) +
+    theme(panel.border = element_rect(color = "black", fill = NA, size = 1),
+          legend.position = "bottom") 
+
+
+
+
+
+
+ggplot(data = states) +
+    geom_sf(fill = "ivory") +
+    geom_sf(data = states_clim, aes(fill = climate_region)) + 
+    geom_point(data = sites, aes(x = longitude, y = latitude, color = service, size = cases)) +
+    geom_shadowtext(data = clim_region_union, aes(x = lon, y = lat, label = climate_region), fontface = "bold", size = 6) +
+    geom_text_repel(data = sites, aes(x = longitude, y = latitude, label = names), fontface = "bold", color = "black", size = 3,nudge_y = 1, force = 2) +
+    geom_sf(data = clim_region_union, fill = "transparent", size = 1.02) +
+  #  coord_sf(xlim = c(-124, -72), ylim = c(25, 45), expand = FALSE) +
+  # annotation_scale(location = "bl", width_hint = 0.5) +
+   annotation_north_arrow(location = "bl", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_fancy_orienteering) +
+    scale_size_continuous(range = c(4, 16)) +
+    theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
+        size = 0.5), panel.background = element_rect(fill = "white")) +
+    theme(panel.border = element_rect(color = "black", fill = NA, size = 1),
+          legend.position = "bottom") +
+    scale_fill_viridis(discrete = TRUE, alpha = 0.5, option = "cividis", guide = FALSE) 
+```
+
+
 
 
 

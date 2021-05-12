@@ -167,6 +167,18 @@ summary(pred_dlnm)
 
 pred_dlnm$allRRfit[c("80", "85", "90", "95", "100")]
 
+
+pred_dlnm$allfit["92"]
+pred_dlnm$allRRfit["92"]
+pred_dlnm$matfit
+pred_dlnm$matRRfit
+pred_dlnm$cumfit
+pred_dlnm$cumRRfit
+
+1.769+0.26
+
+
+
 bind_cols(names(pred_dlnm$allRRfit), pred_dlnm$allRRfit, pred_dlnm$allRRlow, pred_dlnm$allRRhigh) %>% 
   dplyr::rename(var = 1, rr = 2, ci_low = 3, ci_high = 4) %>% 
   dplyr::filter(var %in% c("80", "85", "90", "95", "100")) %>% 

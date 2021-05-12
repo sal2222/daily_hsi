@@ -428,3 +428,9 @@ encounters_casedef %>%
 
 ```
 
+```{r}
+encounters_casedef <-
+  read_rds("data/encounters_casedef.rds")
+
+```
+

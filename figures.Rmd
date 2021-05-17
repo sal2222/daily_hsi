@@ -58,7 +58,39 @@ plot_df_4_4
 ```
 
 
+```{r}
+# Read in ggplot objects
+
+plot_mean_temp <-
+  read_rds("output/plot_tmp_f_mean_lag_slice_cum.rds")
+
+plot_max_temp <-
+  read_rds("output/plot_tmp_f_max_lag_slice_cum.rds")
+
+plot_mean_hi <-
+  read_rds("output/plot_heat_index_mean_lag_slice_cum.rds")
+
+plot_max_hi <-
+  read_rds("output/plot_heat_index_max_lag_slice_cum.rds")
+
+plot_mean_wbgt <-
+  read_rds("output/plot_wbgt_mean_lag_slice_cum.rds")
+
+plot_max_wbgt <-
+  read_rds("output/plot_wbgt_max_lag_slice_cum.rds")
+
+
+
+plot_df_4_4 <-
+  (plot_mean_temp | plot_mean_hi | plot_mean_wbgt) / 
+  (plot_max_temp | plot_max_hi | plot_max_wbgt) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = "bottom")
+
+
+ggsave("output/plot_region_df_4_4_lag_slice_cum.png")
+
+plot_df_4_4
 ```
+
 
 
 
@@ -124,7 +156,9 @@ patchwork_df_4_4[3]
 selected_index <- c("tmp_f_mean", "heat_index_mean","wbgt_mean","tmp_f_max", "heat_index_max", "wbgt_max")
 
 
-or_df_5_4 <-
+# read_rds("output/or_table_wbgt_max.rds")
+
+or_df_4_4 <-
   purrr::map_df(.x = selected_index,
              ~bind_rows(read_rds(paste0("output/or_table_", .x, ".rds")))
   ) %>% 
@@ -137,19 +171,26 @@ or_df_5_4 <-
               index %in% "heat_index_max" ~ "Max Heat Index (°F)",
               index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
               index %in% "tmp_f_max" ~ "Max Temperature (°F)"),
-          or_ci = paste0(format(round(rr, digits = 1), nsmall = 1), " (", format(round(ci_low, digits = 1), nsmall = 1), ",", 
-                         format(round(ci_high, digits = 1), nsmall = 1), ")")
+          or_ci = paste0(format(round(rr, digits = 2), nsmall = 2, trim = "TRUE"), 
+                         " (", format(round(ci_low, digits = 2), nsmall = 2, trim = "TRUE"), ", ",
+                         format(round(ci_high, digits = 2), nsmall = 2, trim = "TRUE"), ")")
         ) %>% 
     rename(or = rr,
            value = var) 
   
 
 
-or_df_5_4 
+or_df_4_4 
 
+
+
+```
+
+
+```{r}
 
 # OR table (wide)
-or_df_5_4 %>% 
+or_df_4_4 %>% 
   dplyr::select(-c(index_key, or, ci_low, ci_high)) %>% 
   filter(value %in% seq(from = 65, to = 115, by = 5)) %>%
   pivot_wider(names_from = value, values_from = or_ci) %>% 
@@ -157,15 +198,19 @@ or_df_5_4 %>%
 
 # OR table ("long"- transposed)
 
-or_df_5_4 %>% 
+or_df_4_4 %>% 
   dplyr::select(-c(index_key, or, ci_low, ci_high)) %>% 
-  filter(value %in% seq(from = 65, to = 115, by = 5)) %>% 
+  #filter(value %in% seq(from = 65, to = 115, by = 5)) %>% 
   pivot_wider(names_from = index, values_from = or_ci) %>% 
   knitr::kable()
 
+or_df_4_4_long <-
+  or_df_4_4 %>% 
+    dplyr::select(-c(index_key, or, ci_low, ci_high)) %>% 
+    #filter(value %in% seq(from = 65, to = 115, by = 5)) %>% 
+    pivot_wider(names_from = index, values_from = or_ci)
 
-
-
+or_df_4_4_long %>% View()
 
 ```
 

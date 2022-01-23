@@ -54,13 +54,18 @@
   - annual indices
   - daily anomalies (mean daily temp, heat index, wet bulb, WBGT)
 
+# dlnm
+
+- case-control dataframes
+- join daily indices to case-control (cc_exposure_df)
+- lag function, cross-basis, clogit dlnm model, cross-predictions
+
 # descriptive
 
   - outcome tables (counts)
   - exposure scatterplots, density plots,  correlations
   - exposure summary tables
   - CONUS location map
-
 
 # master_function  
 

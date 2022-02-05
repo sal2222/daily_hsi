@@ -311,7 +311,8 @@ assign(paste0("plot_", selected_index),
     #           size = 4) +
     xlab(print_index) +
     ylab('Odds Ratio') +
-    labs(subtitle = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
+    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
+    #labs(subtitle = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
     coord_cartesian(xlim = c(NA, set_max_plot_value)) +
     theme_bw() 
   )
@@ -486,11 +487,12 @@ assign(paste0("plot_", selected_index, "_lag_slice"),
   ggplot(data = to_plot_slice, aes(x = index_value, color = lag)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
     geom_line(aes(y = OR), se = FALSE, size = 1.2) +
-    geom_line(aes(y = OR_low), se = FALSE, size = 0.3, linetype = "solid") +
-    geom_line(aes(y = OR_high), se = FALSE, size = 0.3, linetype = "solid") +
+    geom_line(aes(y = OR_low), se = FALSE, size = 0.3, linetype = "dotted") +
+    geom_line(aes(y = OR_high), se = FALSE, size = 0.3, linetype = "dotted") +
     xlab(print_index) +
     ylab('Odds Ratio') +
-    labs(caption = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
+    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
+    #labs(caption = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
     coord_cartesian(xlim = c(NA, set_max_plot_value)) +
     theme(legend.position = "bottom") +
     theme_bw() 
@@ -546,12 +548,13 @@ to_plot_slice_cum
 assign(paste0("plot_", selected_index, "_lag_slice_cum"),
   ggplot(data = to_plot_slice_cum, aes(x = index_value, color = lag)) +
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
-    geom_line(aes(y = OR), se = FALSE, size = 2) +
-    geom_line(aes(y = OR_low), se = FALSE, size = 0.1, linetype = "dashed") +
-    geom_line(aes(y = OR_high), se = FALSE, size = 0.1, linetype = "dashed") +
+    geom_line(aes(y = OR), se = FALSE, size = 1.2) +
+    geom_line(aes(y = OR_low), se = FALSE, size = 0.3, linetype = "dotted") +
+    geom_line(aes(y = OR_high), se = FALSE, size = 0.3, linetype = "dotted") +
     xlab(print_index) +
     ylab('Odds Ratio') +
-    labs(subtitle = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
+    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
+    #labs(subtitle = paste0("Centered at ", format(round(set_centered, digits = 1), nsmall = 1))) +
     coord_cartesian(xlim = c(NA, set_max_plot_value)) +
     theme_bw() 
 )
@@ -567,5 +570,9 @@ paste0("plot_", selected_index, "_lag_slice_cum")
 eval(parse(text = paste0("plot_", selected_index, "_lag_slice_cum"))) 
 
 }
+```
+
+```{r}
+plot_tmp_f_max_base
 ```
 

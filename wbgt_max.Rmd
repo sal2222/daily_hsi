@@ -159,7 +159,7 @@ index_dlnm <- survival::clogit(case ~
                   data =  cc_exposure_df) 
 
 
-pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 32, to = 110, cen = 60, cumul = TRUE)
+pred_dlnm <- crosspred(index_cb, index_dlnm, by = 1, from = 32, to = 110, cen = median(cc_exposure_df$wbgt_max), cumul = TRUE)
 
 summary(pred_dlnm)
 

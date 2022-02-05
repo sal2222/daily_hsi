@@ -1067,8 +1067,9 @@ mapping_df <-
     left_join(centroid_coords, by = c("installation_name" = "site_name"))
 
 #write_rds(mapping_df, file = "data/mapping_df.rds")
-                              
 
+#mapping_df <-                              
+ # read_rds(file = "data/mapping_df.rds")
 
 mapping_df                              
 
@@ -1305,6 +1306,16 @@ ggplot(data = states) +
 ```
 
 
+
+## Export files as .shp for QGIS
+```{r}
+
+st_write(clim_region_union, "data/to_gis/clim_region_union.shp")
+
+st_write(states_clim, "data/to_gis/states_clim.shp")
+
+st_write(sites, "data/to_gis/sites.shp")
+```
 
 
 

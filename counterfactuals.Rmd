@@ -1,28 +1,43 @@
 ---
 title: "counterfactuals"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+These findings suggest that implementation of control measures based on HI, instead of, or in addition to WBGT may effectively reduce HSI morbidity at sites where HI and WBGT poorly correlate in upper heat categories. For example, if preventive measures were initiated at an HI of 103°F, the NWS “Danger” classification level, with a similar OR reduction effect to maximum WBGT, the OR would hypothetically peak at 2.18, relative to an HI of 91°F, rather than continue to increase beyond 6.0 at 116°F, for an estimated reduction of ___ HSI cases per year.   
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+## Histogram for cases by Mac Heat Index
+```{r}
+
+hi_max_hist <-
+  cc_exposure_df %>% 
+  filter(case == 1) %>% 
+  ggplot(aes(x = heat_index_max)) +
+    geom_histogram(binwidth = 1, boundary = 0) +
+    geom_vline(xintercept = 103) +
+    theme_bw()
+
+hi_max_hist
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+
+## Convenience function
+get_hist <- function(p) {
+    d <- ggplot_build(p)$data[[1]]
+    data.frame(x = d$x, xmin = d$xmin, xmax = d$xmax, y = d$y, cumsum = cumsum(d$y))
+}
+
+get_hist(hi_max_hist)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

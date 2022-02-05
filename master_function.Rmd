@@ -43,6 +43,13 @@ cc_exposure_df <-
            "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max),
            source = tolower(source))
 
+  # wbgt coded from "urban" in prior step (better suited to semi-woodland)
+
+cc_exposure_df_minimums <-
+    cc_exposure_df_minimums %>% 
+    mutate("wbgt_min" = weathermetrics::celsius.to.fahrenheit(wbgt_u_min),
+           "wbgt0600" = weathermetrics::celsius.to.fahrenheit(wbgt0600),
+           source = tolower(source))
 
 base_service_df <-
    read_rds(file = "data/base_service_df.rds") 
@@ -57,12 +64,29 @@ cc_exposure_df <-
 
 
 
-daily_indices <- 
-  read_rds(file = "data/daily_indices.rds") %>% 
+cc_exposure_df_minimums <-
+    cc_exposure_df_minimums %>% 
+    left_join(base_service_df %>%
+                rename(base_service = service) %>% 
+                dplyr::select(installation_name, base_service, region), by = "installation_name") 
+
+# write_rds(cc_exposure_df_minimums, file = "data/cc_exposure_df_minimums.rds")
+
+cc_exposure_df_minimums <-
+  read_rds(file = "data/cc_exposure_df_minimums.rds")
+
+
+
+
+
+
+daily_indices <-
+  read_rds(file = "data/daily_indices.rds") %>%
     filter(!installation %in% c("fort_drum", "fort_huachuca", "fort_lewis",
-                                "lackland_afb", "fort_carson", "west_point_mil_reservation")) %>% 
-    mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_mean),
-           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_max),
+                                "lackland_afb", "fort_carson", "west_point_mil_reservation")) %>%
+    mutate("wbgt_mean" = weathermetrics::celsius.to.fahrenheit(wbgt_u_mean),
+           "wbgt_max" = weathermetrics::celsius.to.fahrenheit(wbgt_u_max),
+           "wbgt_min" = weathermetrics::celsius.to.fahrenheit(wbgt_u_min),
             installation = recode(installation,
               "mcb_camp_lejeune" = "camp_lejeune",
               "mcb_camp_pendleton" = "camp_pendleton",
@@ -70,7 +94,21 @@ daily_indices <-
               "fort_sam_houston" = "jbsa",
               "mcrd_beaufort_parris_island" = "parris_island",
               "mcb_quantico" = "quantico",
-              "twentynine_palms_main_base" = "twentynine_palms")) 
+              "twentynine_palms_main_base" = "twentynine_palms"))
+
+
+
+morning_indices <-
+  read_rds(file = "data/morning_indices.rds") %>% 
+   mutate("wbgt0600" = weathermetrics::celsius.to.fahrenheit(wbgt0600), 
+            installation = recode(installation,
+              "mcb_camp_lejeune" = "camp_lejeune",
+              "mcb_camp_pendleton" = "camp_pendleton",
+              "fort_benning_ga" = "fort_benning",
+              "fort_sam_houston" = "jbsa",
+              "mcrd_beaufort_parris_island" = "parris_island",
+              "mcb_quantico" = "quantico",
+              "twentynine_palms_main_base" = "twentynine_palms"))
      
 ```
 
@@ -80,7 +118,9 @@ daily_indices <-
 
 ```{r}
 
-selected_index <- "tmp_f_max"
+selected_index <- "wbgt0600"
+
+median(cc_exposure_df_minimums$tmp_f0600, na.rm = TRUE)
 
 # crossbasis options
 set_lag <- 5    # total number days lag to assess
@@ -90,7 +130,10 @@ set_lag_df <- 4   # natural spline degrees of freedom for functional form of the
 # crosspred options
 
 set_increment <- 1   # crosspred "by = "
-set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))))       #60     # crosspred "cen= ", centered value for odds ratios 
+
+#set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))), na.rm = TRUE)       #60     # crosspred "cen= ", centered value for odds ratios 
+
+set_centered <- median(eval(parse(text = paste0("cc_exposure_df_minimums$", selected_index))), na.rm = TRUE)       #60     # crosspred "cen= ", centered value for odds ratios 
 set_min_temp <- 32   # crosspred lower bound
 
 
@@ -102,9 +145,19 @@ set_max_temp <- case_when(
   selected_index %in% "heat_index_max" ~ 120,
   selected_index %in% "tmp_f_mean" ~ 105,
   selected_index %in% "tmp_f_max" ~ 120,
-    )
+  selected_index %in% "tmp_f_min" ~ 90,
+  selected_index %in% "heat_index_min" ~ 100,
+  selected_index %in% "wbgt_min" ~ 84,
+  selected_index %in% "tmp_f0600" ~ 92,
+  selected_index %in% "heat_index0600" ~ 100 ,
+  selected_index %in% "wbgt0600" ~ 86 
+        )
 
 set_max_temp
+
+
+#cc_exposure_df_minimums %>% summary()
+   
 
 
 # set max plot index value (approximate, or rounded-down from max value in dataset)
@@ -115,7 +168,14 @@ set_max_plot_value <- case_when(
   selected_index %in% "heat_index_max" ~ 116,
   selected_index %in% "tmp_f_mean" ~ 98,
   selected_index %in% "tmp_f_max" ~ 112,
-    )
+  selected_index %in% "tmp_f_min" ~ 88,
+  selected_index %in% "heat_index_min" ~ 99,
+  selected_index %in% "wbgt_min" ~ 82,
+  selected_index %in% "tmp_f0600" ~ 90,
+  selected_index %in% "heat_index0600" ~ 98,
+  selected_index %in% "wbgt0600" ~ 85
+        )
+    
 
 set_max_plot_value
 
@@ -127,6 +187,17 @@ print_index <- case_when(
   selected_index %in% "heat_index_max" ~ "Max Heat Index (°F)",
   selected_index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
   selected_index %in% "tmp_f_max" ~ "Max Temperature (°F)",
+    )
+
+
+
+print_index <- case_when(
+  selected_index %in% "wbgt_min" ~ "Minimum WBGT (°F)",
+  selected_index %in% "wbgt0600" ~ "WBGT 0600 Local (°F)",
+  selected_index %in% "heat_index_min" ~ "Minimum Heat Index (°F)",
+  selected_index %in% "heat_index0600" ~ "Heat Index 0600 Local (°F)",
+  selected_index %in% "tmp_f_min" ~ "Minimum Temperature (°F)",
+  selected_index %in% "tmp_f0600" ~ "Temperature 0600 Local (°F)"
     )
 
 
@@ -158,22 +229,40 @@ lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
 ```{r, warning = FALSE}
  # create lag matrix
 
+# lag_matrix <-
+#   daily_indices %>% 
+#     filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
+#       dplyr::select(installation, date, selected_index) %>% 
+#    group_by(installation) %>% 
+#    mutate_at(vars(selected_index), funs_(lag_fun)
+#   )
+
+
+
 lag_matrix <-
-  daily_indices %>% 
-    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
-      dplyr::select(installation, date, selected_index) %>% 
-   group_by(installation) %>% 
+  morning_indices %>%
+    filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>%
+      dplyr::select(installation, date, selected_index) %>%
+   group_by(installation) %>%
    mutate_at(vars(selected_index), funs_(lag_fun)
   )
 
 
 # join lag matrix to case-crossover dataframe
 
+#cc_lag_matrix <-
+#  cc_exposure_df %>% 
+ #   filter(year %in% 1998:2019) %>% 
+ #   dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+  #  left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
+
+
 cc_lag_matrix <-
-  cc_exposure_df %>% 
+  cc_exposure_df_minimums %>% 
     filter(year %in% 1998:2019) %>% 
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
     left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
+
 
 
 cc_lag_only <- 
@@ -201,11 +290,20 @@ summary(index_cb)
 # run model and get prediction for selected_index
 
 
+#index_dlnm <- survival::clogit(case ~ 
+    #              index_cb +  # lagged, nonlinear term for exposure
+    #              strata(stratum), 
+    #              method = "efron",
+    #             data =  cc_exposure_df) 
+
+
+
 index_dlnm <- survival::clogit(case ~ 
                   index_cb +  # lagged, nonlinear term for exposure
                   strata(stratum), 
                   method = "efron",
-                  data =  cc_exposure_df) 
+                  data =  cc_exposure_df_minimums) 
+
 
 
 pred_dlnm <- crosspred(index_cb, index_dlnm, by = set_increment, from = set_min_temp, to = set_max_temp, cen = set_centered, cumul = TRUE)
@@ -281,8 +379,7 @@ write_rds(eval(parse(text = paste0("plot_", selected_index))),
 
 
 eval(parse(text = paste0("plot_", selected_index))) +
-    ggtitle(paste0("Daily ", print_index, " and HSI association cumulative over 0-",
-                   set_lag, " days lag")) +
+  #  ggtitle(paste0("Daily ", print_index, " and HSI association cumulative over 0-", set_lag, " days lag")) +
     labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
     theme(plot.caption = element_text(hjust = 0))
 

@@ -137,7 +137,7 @@ patchwork_df_4_4 <-
 write_rds(patchwork_df_4_4, "output/patchwork_df_4_4.rds")     
 
 
-patchwork_df_4_4 <-
+patchwork_df_5_4 <-
   read_rds("output/patchwork_df_5_4.rds")
 
 patchwork_df_4_4[3]
@@ -210,8 +210,10 @@ or_df_4_4_long <-
     #filter(value %in% seq(from = 65, to = 115, by = 5)) %>% 
     pivot_wider(names_from = index, values_from = or_ci)
 
+
 or_df_4_4_long %>% View()
 
+write.csv(or_df_4_4_long, file = "output/or_df_4_4_long.csv")
 ```
 
 

@@ -28,10 +28,10 @@ Output: `cc_exposure_df`
 
 ```{r}
 
-daily_indices <- read_rds(file = "D:/data/daily_indices.rds") %>% 
+daily_indices <- read_rds(file = "E:/data/daily_indices.rds") %>% 
   rename(date = `lubridate::date(local_dttm)`)
 
-daily_anomalies <- read_rds(file = "D:/data/daily_anomalies.rds")
+daily_anomalies <- read_rds(file = "E:/data/daily_anomalies.rds")
 
 daily_nldas <-
   daily_indices %>% 
@@ -109,6 +109,8 @@ case_control_df <-
 
 #write_rds(case_control_df, file = "data/case_control_df.rds")
 
+#case_control_df <- read_rds(file = "data/case_control_df.rds")
+
 
 
 
@@ -154,6 +156,43 @@ case_control_df[,1:4] %>%
 
 
 ```
+
+
+
+## Additional: assess minimum, 0600 indices
+```{r}
+
+minimum_indices <-
+  read_rds(file = "data/daily_indices.rds") %>% 
+  dplyr::select(installation, date, tmp_f_min, heat_index_min, wbgt_u_min)
+
+morning_indices <-
+  read_rds(file = "E:data/morning_indices.rds") %>% 
+  mutate(date = lubridate::date(local_dttm)) %>% 
+ dplyr::select(installation, date, tmp_f0600 = tmp_f, heat_index0600 = heat_index, wbgt0600 = wbgt_u)
+
+
+daily_anomalies <-
+  read_rds(file = "E:/data/daily_anomalies.rds") %>% 
+  dplyr::select(installation, date, tmp_mean_anom, hi_mean_anom, wbgt_mean_anom)
+
+cc_exposure_df_minimums <-
+  case_control_df %>% 
+    left_join(minimum_indices,  by = c("installation_name" = "installation", "d_event" = "date")) %>% 
+    left_join(morning_indices,  by = c("installation_name" = "installation", "d_event" = "date")) %>% 
+    left_join(daily_anomalies,  by = c("installation_name" = "installation", "d_event" = "date")) %>% 
+    filter(year %in% 1998:2019) %>% 
+    mutate(stratum = as_factor(paste(studyid, d_event, sep = "_")))
+
+# write_rds(cc_exposure_df_minimums, file = "E:/data/cc_exposure_df_minimums.rds")
+```
+
+
+
+
+
+
+
 
 ## Conditional Logistic Model (no lag)
 

@@ -1,0 +1,57 @@
+---
+title: "minimum_temps"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(tidyverse)
+library(lubridate)
+library(forcats)
+
+```
+
+
+Input: `hourly_nldas`
+Key output: `daily_indices` (temp, hi, wbgt, wbgt_u) at daily mean, max, min, 95%-ile
+
+
+
+Load hourly index dataframe 
+
+```{r}
+
+hourly_nldas <-
+  read_rds(file = "E:/data/hourly_nldas.rds")
+
+hourly_nldas %>% 
+  summary(status)
+
+hourly_nldas %>% 
+  count(installation) %>% View()
+
+```
+
+
+
+
+# Daily/Monthly/Annual indices
+
+```{r}
+
+morning_indices <-
+  hourly_nldas  %>%
+      drop_na %>%
+      dplyr::select(installation, local_dttm, tmp_f, heat_index, wbgt, wbgt_u) %>% 
+      dplyr::filter(lubridate::hour(local_dttm) %in% 06) 
+
+
+
+write_rds(morning_indices, file = "data/morning_indices.rds")
+#write_rds(daily_indices, file = "data/daily_indices.rds")
+
+```

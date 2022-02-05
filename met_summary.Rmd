@@ -17,7 +17,7 @@ library(forcats)
 
 
 Input: `hourly_nldas`
-Key output: `daily_indices` (temp, hi, wbgt, wbgt_u) at daily mean, max, min, 95%-ile
+Key output: `daily_indices` (temp, hi, r, wbgt_u) at daily mean, max, min, 95%-ile
 
 
 

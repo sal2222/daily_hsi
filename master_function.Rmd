@@ -118,7 +118,7 @@ morning_indices <-
 
 ```{r}
 
-selected_index <- "wbgt0600"
+selected_index <- "heat_index_mean"
 
 median(cc_exposure_df_minimums$tmp_f0600, na.rm = TRUE)
 
@@ -131,9 +131,14 @@ set_lag_df <- 4   # natural spline degrees of freedom for functional form of the
 
 set_increment <- 1   # crosspred "by = "
 
-#set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))), na.rm = TRUE)       #60     # crosspred "cen= ", centered value for odds ratios 
+set_centered <- median(eval(parse(text = paste0("cc_exposure_df$", selected_index))), na.rm = TRUE)       #60     # crosspred "cen= ", centered value for odds ratios 
 
-set_centered <- median(eval(parse(text = paste0("cc_exposure_df_minimums$", selected_index))), na.rm = TRUE)       #60     # crosspred "cen= ", centered value for odds ratios 
+
+## For minimum/0600 indices:
+#set_centered <- median(eval(parse(text = paste0("cc_exposure_df_minimums$", selected_index))), na.rm = TRUE)       #60     # crosspred "cen= ", centered value for odds ratios 
+
+
+
 set_min_temp <- 32   # crosspred lower bound
 
 
@@ -229,18 +234,8 @@ lag_fun <- setNames(paste("dplyr::lag(., ", lags, ")"), lag_names)
 ```{r, warning = FALSE}
  # create lag matrix
 
-# lag_matrix <-
-#   daily_indices %>% 
-#     filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>% 
-#       dplyr::select(installation, date, selected_index) %>% 
-#    group_by(installation) %>% 
-#    mutate_at(vars(selected_index), funs_(lag_fun)
-#   )
-
-
-
 lag_matrix <-
-  morning_indices %>%
+  daily_indices %>%
     filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>%
       dplyr::select(installation, date, selected_index) %>%
    group_by(installation) %>%
@@ -248,20 +243,32 @@ lag_matrix <-
   )
 
 
+## Lag matrix for minimum/0600 indices
+# lag_matrix <-
+#   morning_indices %>%
+#     filter(date %in% as.Date("1997-12-15"):as.Date("2019-12-31")) %>%
+#       dplyr::select(installation, date, selected_index) %>%
+#    group_by(installation) %>%
+#    mutate_at(vars(selected_index), funs_(lag_fun)
+#   )
+
+
 # join lag matrix to case-crossover dataframe
 
-#cc_lag_matrix <-
-#  cc_exposure_df %>% 
- #   filter(year %in% 1998:2019) %>% 
- #   dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
-  #  left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
-
-
 cc_lag_matrix <-
-  cc_exposure_df_minimums %>% 
-    filter(year %in% 1998:2019) %>% 
-    dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
-    left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
+ cc_exposure_df %>%
+  filter(year %in% 1998:2019) %>%
+  dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+ left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date"))
+
+
+
+## Case-crossover joined Lag matrix for minimum/0600 indices
+# cc_lag_matrix <-
+#   cc_exposure_df_minimums %>% 
+#     filter(year %in% 1998:2019) %>% 
+#     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
+#     left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) 
 
 
 
@@ -290,19 +297,19 @@ summary(index_cb)
 # run model and get prediction for selected_index
 
 
-#index_dlnm <- survival::clogit(case ~ 
-    #              index_cb +  # lagged, nonlinear term for exposure
-    #              strata(stratum), 
-    #              method = "efron",
-    #             data =  cc_exposure_df) 
+index_dlnm <- survival::clogit(case ~
+             index_cb +  # lagged, nonlinear term for exposure
+             strata(stratum),
+             method = "efron",
+            data =  cc_exposure_df)
 
 
-
-index_dlnm <- survival::clogit(case ~ 
-                  index_cb +  # lagged, nonlinear term for exposure
-                  strata(stratum), 
-                  method = "efron",
-                  data =  cc_exposure_df_minimums) 
+## For minimum/0600
+# index_dlnm <- survival::clogit(case ~ 
+#                   index_cb +  # lagged, nonlinear term for exposure
+#                   strata(stratum), 
+#                   method = "efron",
+#                   data =  cc_exposure_df_minimums) 
 
 
 
@@ -579,13 +586,14 @@ to_plot_region <-
 
 
 assign(paste0("plot_", selected_index, "_region"),
-  ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +
+  ggplot(data = to_plot_region, aes(x = index, y = mean, ymin = lower, ymax = upper, color = region, fill = region)) +     
     geom_hline(lty = 2, yintercept = 1) + # horizontal reference line at no change in odds
     geom_ribbon(alpha = 0.1, colour = NA) +
-    geom_line(size = 1.25) +
+    geom_line(size = 1.2) +
     xlab(print_index) +
     ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(set_centered, set_max_plot_value), ylim = c(NA, max(to_plot_region$mean, na.rm = TRUE))) +
+    coord_cartesian(xlim = c(NA, set_max_plot_value)) +
+    #coord_cartesian(xlim = c(set_centered, set_max_plot_value), ylim = c(NA, max(to_plot_region$mean, na.rm = TRUE))) +
     theme_bw() 
 )
 
@@ -597,8 +605,8 @@ paste0("plot_", selected_index, "_region")
 
 
 eval(parse(text = paste0("plot_", selected_index, "_region"))) +
-    ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by NOAA NCEI climate region")) +
-    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
+   # ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by NOAA NCEI climate region")) +
+    labs(caption = paste0("ORs relative to ",  print_index, " = ", format(round(set_centered, digits = 1), nsmall = 1))) +
     theme(plot.caption = element_text(hjust = 0)) 
 
 
@@ -779,7 +787,7 @@ eval(parse(text = paste0("plot_", selected_index, "_tis"))) +
 
 
 ## Nest by HSI type
-Nest `cc_exposure_df` by region
+
 
 ```{r, warning = FALSE}
 
@@ -790,6 +798,10 @@ Nest `cc_exposure_df` by region
 assign(paste0(selected_index, "_nest_hsi"),
   cc_exposure_df %>%
     filter(year %in% 1998:2019) %>%
+    mutate(hsi = recode(hsi, heat_stroke = "heat stroke",
+                             heat_exhaustion = "heat exhaustion"),
+           hsi = as_factor(hsi),
+           hsi = fct_relevel(hsi, c("heat stroke", "heat exhaustion"))) %>% 
     dplyr::select(!selected_index) %>%    # remove to avoid double listing after join
     left_join(lag_matrix,  by = c("installation_name" = "installation", "date" = "date")) %>% 
     group_by(hsi) %>% 
@@ -841,8 +853,11 @@ assign(paste0("plot_", selected_index, "_hsi"),
     geom_line(size = 1.25) +
     xlab(print_index) +
     ylab('Odds Ratio') +
-    coord_cartesian(xlim = c(set_centered, set_max_plot_value), ylim = c(NA, max(to_plot_hsi$mean, na.rm = TRUE))) +
-    theme_bw() 
+    coord_cartesian(xlim = c(NA, set_max_plot_value)) +
+    #coord_cartesian(xlim = c(set_centered, set_max_plot_value), ylim = c(NA, max(to_plot_hsi$mean, na.rm = TRUE))) +
+    theme_bw() +
+    labs(color = 'type') +
+    guides(fill = FALSE)
 )
 
 write_rds(eval(parse(text = paste0("plot_", selected_index, "_hsi"))), 
@@ -850,8 +865,8 @@ write_rds(eval(parse(text = paste0("plot_", selected_index, "_hsi"))),
 
 
 eval(parse(text = paste0("plot_", selected_index, "_hsi"))) +
-    ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by HSI type")) +
-    labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
+   # ggtitle(paste0("Daily ", print_index, " and HSI association \ncumulative over 0-5 days lag by HSI type")) +
+    labs(caption = paste0("ORs relative to ",  print_index, " = ", format(round(set_centered, digits = 1), nsmall = 1))) +
     theme(plot.caption = element_text(hjust = 0)) 
 
 

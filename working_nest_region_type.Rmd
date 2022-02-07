@@ -121,7 +121,7 @@ morning_indices <-
 
 ```{r}
 
-selected_index <- "wbgt_max"
+selected_index <- "tmp_f_max"
 
 
 
@@ -502,6 +502,9 @@ eval(parse(text = paste0("plot_", selected_index, "_hsi"))) +
 
 ```
 
+plot_tmp_f_max_hsi +
+    labs(caption = paste0("ORs relative to ",  print_index, " = ", format(round(set_centered, digits = 1), nsmall = 1))) +
+    theme(plot.caption = element_text(hjust = 0)) 
 
 
 

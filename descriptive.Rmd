@@ -497,51 +497,48 @@ to_scatter_cutoff <-
            `Max WBGT` > 85)
 
 
-
+  #to_scatter (n= 139,875)
+  #to_scatter_cutoff (n = 12,865)
 
 # Mean pairwise scatterplots
 
   # set alpha value
-alpha_val <- 0.6
+alpha_val <- 0.1
 ellipse_type <- "t"
+point_size <- 0.5
+ellipse_size <- 1.05
 
 s1 <-
-to_scatter %>% 
-    filter(case %in% "Case",
-           `Max WBGT` > 85) %>% 
-  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
-  ggplot(aes(x = `Mean Temperature`, y = `Mean Heat Index`)) +
-    geom_point(alpha = alpha_val, aes(color = Region)) +
-    geom_smooth(method = "lm", se = FALSE, color = "black") +
-    stat_ellipse(type = ellipse_type, aes(color = Region)) +
-    annotate(x = 90, y = 70, 
-         label=paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean Heat Index`),2)), 
-         geom = "text", size = 4) +
-     theme_bw()
+  to_scatter_cutoff %>% 
+    dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+    ggplot(aes(x = `Mean Temperature`, y = `Mean Heat Index`)) +
+      geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+      geom_smooth(method = "lm", se = FALSE, color = "black") +
+      stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+      annotate(x = 90, y = 70, 
+           label=paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean Heat Index`),2)), 
+           geom = "text", size = 4) +
+       theme_bw()
 
 s2 <-
-to_scatter %>% 
-    filter(case %in% "Case",
-                   `Max WBGT` > 85) %>% 
+to_scatter_cutoff %>% 
   dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
   ggplot(aes(x = `Mean Temperature`, y = `Mean WBGT`)) +
-    geom_point(alpha = alpha_val, aes(color = Region)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
    geom_smooth(method = "lm", se = FALSE, color = "black") +
-   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
   annotate(x = 95, y = 65, 
          label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean WBGT`),2)), 
          geom = "text", size = 4) +
      theme_bw()
 
 s3 <-
-to_scatter %>% 
-    filter(case %in% "Case",
-                   `Max WBGT` > 85) %>%  
+to_scatter_cutoff %>%  
   dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
   ggplot(aes(x = `Mean Heat Index`, y = `Mean WBGT`)) +
-    geom_point(alpha = alpha_val, aes(color = Region)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
    geom_smooth(method = "lm", se = FALSE, color = "black") +
-   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
      annotate(x = 95, y = 65, 
          label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Heat Index`, to_scatter_cutoff$`Mean WBGT`),2)), 
          geom = "text", size = 4) +
@@ -551,14 +548,12 @@ to_scatter %>%
 # Max pairwise scatterplots
 
 s4 <-
-to_scatter %>% 
-    filter(case %in% "Case") %>% 
+to_scatter_cutoff %>% 
   dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
-  filter(`Max WBGT` > 85) %>%
   ggplot(aes(x = `Max Temperature`, y = `Max Heat Index`)) +
-    geom_point(alpha = alpha_val, aes(color = Region)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
    geom_smooth(method = "lm", se = FALSE, color = "black") +
-   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
    annotate(x = 105, y = 80, 
          label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max Heat Index`),2)), 
          geom = "text", size = 4) +
@@ -566,28 +561,24 @@ to_scatter %>%
 
 
 s5 <-
-to_scatter %>% 
-    filter(case %in% "Case") %>% 
+to_scatter_cutoff %>% 
   dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
-  filter(`Max WBGT` > 85) %>%
   ggplot(aes(x = `Max Temperature`, y = `Max WBGT`)) +
-    geom_point(alpha = alpha_val, aes(color = Region)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
     geom_smooth(method = "lm", se = FALSE, color = "black") +
-   stat_ellipse(type = ellipse_type, aes(color = Region)) +
-     annotate(x = 77, y = 100, 
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+     annotate(x = 80, y = 100, 
          label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max WBGT`),2)), 
          geom = "text", size = 4) +
      theme_bw()
 
 s6 <-
-to_scatter %>% 
-    filter(case %in% "Case") %>% 
+to_scatter_cutoff %>% 
   dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
-  filter(`Max WBGT` > 85) %>%
   ggplot(aes(x = `Max Heat Index`, y = `Max WBGT`)) +
-    geom_point(alpha = alpha_val, aes(color = Region)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
    geom_smooth(method = "lm", se = FALSE, color = "black") +
-   stat_ellipse(type = ellipse_type, aes(color = Region)) +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
    annotate(x = 80, y = 100, 
          label = paste("r = ", round(cor(to_scatter_cutoff$`Max Heat Index`, to_scatter_cutoff$`Max WBGT`),2)), 
          geom = "text", size = 4) +
@@ -605,9 +596,242 @@ plot_index_pairs_scatter <-
 
 plot_index_pairs_scatter 
 
-ggsave("output/plot_index_pairs_scatter.png")
+ggsave(filename = "output/plot_index_pairs_scatter.tiff", device = "tiff", dpi = 700)
+#ggsave("output/plot_index_pairs_scatter.png")
+
+plot_index_pairs_scatter_2x3 <-
+  (s1 | s2 ) / (s3 | s4 ) / ( s5 | s6) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_index_pairs_scatter_2x3
+#ggsave("output/plot_index_pairs_scatter_2x3.png")
+
 
 ```
+
+
+
+Scatterplots with black points instead of colored by region
+```{r}
+
+
+# Mean pairwise scatterplots
+
+  # set alpha value
+alpha_val <- 0.1
+ellipse_type <- "t"
+point_size <- 0.4
+ellipse_size <- 1.05
+
+s1 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temperature`, y = `Mean Heat Index`)) +
+    geom_point(alpha = alpha_val, size = point_size) +
+    geom_smooth(method = "lm", se = FALSE, color = "black") +
+    stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+    annotate(x = 90, y = 70, 
+         label=paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean Heat Index`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+s2 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temperature`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+  annotate(x = 95, y = 65, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+s3 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Heat Index`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+     annotate(x = 95, y = 65, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Heat Index`, to_scatter_cutoff$`Mean WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+
+# Max pairwise scatterplots
+
+s4 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Temperature`, y = `Max Heat Index`)) +
+    geom_point(alpha = alpha_val, size = point_size) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+   annotate(x = 105, y = 80, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max Heat Index`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+
+s5 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Temperature`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size) +
+    geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+     annotate(x = 77, y = 100, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+s6 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Heat Index`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+   annotate(x = 80, y = 100, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Heat Index`, to_scatter_cutoff$`Max WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+
+
+# patchwork grid plot
+
+plot_index_pairs_scatter_blk <-
+  (s1 | s2 | s3) / (s4 | s5 | s6) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_index_pairs_scatter_blk 
+
+#ggsave("output/plot_index_pairs_scatter.png")
+
+```
+
+
+
+Scatterplot all points (no temp cutoff)
+
+
+```{r}
+
+  #to_scatter (n= 139,875)
+  #to_scatter_cutoff (n = 12,865)
+
+# Mean pairwise scatterplots
+
+  # set alpha value
+alpha_val <- 0.05
+ellipse_type <- "t"
+point_size <- 0.3
+ellipse_size <- 1.0
+
+s1 <-
+  to_scatter %>% 
+    dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+    ggplot(aes(x = `Mean Temperature`, y = `Mean Heat Index`)) +
+      geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+      geom_smooth(method = "lm", se = FALSE, color = "black") +
+      stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+      annotate(x = 50, y = 10, 
+           label = paste("r = ", round(cor(to_scatter$`Mean Temperature`, to_scatter$`Mean Heat Index`),2)), 
+           geom = "text", size = 4) +
+       theme_bw()
+
+s2 <-
+to_scatter %>% 
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temperature`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+  annotate(x = 50, y = 25, 
+         label = paste("r = ", round(cor(to_scatter$`Mean Temperature`, to_scatter$`Mean WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+s3 <-
+to_scatter %>%  
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Heat Index`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+     annotate(x = 60, y = 25, 
+         label = paste("r = ", round(cor(to_scatter$`Mean Heat Index`, to_scatter$`Mean WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+
+# Max pairwise scatterplots
+
+s4 <-
+to_scatter %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Temperature`, y = `Max Heat Index`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+   annotate(x = 60, y = 25, 
+         label = paste("r = ", round(cor(to_scatter$`Max Temperature`, to_scatter$`Max Heat Index`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+
+s5 <-
+to_scatter %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Temperature`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+    geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+     annotate(x = 60, y = 25, 
+         label = paste("r = ", round(cor(to_scatter$`Max Temperature`, to_scatter$`Max WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+s6 <-
+to_scatter %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Heat Index`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+   annotate(x = 60, y = 25, 
+         label = paste("r = ", round(cor(to_scatter$`Max Heat Index`, to_scatter$`Max WBGT`),2)), 
+         geom = "text", size = 4) +
+     theme_bw()
+
+
+
+# patchwork grid plot
+
+plot_index_pairs_scatter_full <-
+  (s1 | s2 | s3) / (s4 | s5 | s6) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_index_pairs_scatter_full 
+
+ggsave(filename = "output/plot_index_pairs_scatter_full.tiff", device = "tiff", dpi = 700)
+#ggsave("output/plot_index_pairs_scatter.png")
+
+
+
+
+```
+
+
 
 
 

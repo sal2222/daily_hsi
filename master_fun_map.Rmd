@@ -323,8 +323,7 @@ write_rds(eval(parse(text = paste0("plot_", selected_index))),
 
 
 eval(parse(text = paste0("plot_", selected_index))) +
-    ggtitle(paste0("Daily ", print_index, " and HSI association cumulative over 0-",
-                   set_lag, " days lag")) +
+    # ggtitle(paste0("Daily ", print_index, " and HSI association cumulative over 0-", set_lag, " days lag")) +
     labs(caption = paste0("ORs relative to ",  print_index, " = ", set_centered)) +
     theme(plot.caption = element_text(hjust = 0))
 

@@ -450,6 +450,9 @@ cc_exposure_df %>%
 
 ```{r}
 
+# full, n = 139,875
+# filter case only, n = 31,642
+
 to_scatter <-
   cc_exposure_df %>% 
     dplyr::select(installation_name, case, source, age, sex, race_ethnic, service, grade, hsi,
@@ -487,7 +490,8 @@ to_scatter <-
          "Mean Temperature" = tmp_f_mean,
          "Mean Heat Index" = heat_index_mean,
          "Mean WBGT" = wbgt_mean,
-         "Region" = region) 
+         "Region" = region) %>% 
+          filter(case %in% "Case")    
 
 
 
@@ -498,7 +502,7 @@ to_scatter_cutoff <-
 
 
   #to_scatter (n= 139,875)
-  #to_scatter_cutoff (n = 12,865)
+  #to_scatter_cutoff (Cases, n = 12,865)
 
 # Mean pairwise scatterplots
 
@@ -815,15 +819,15 @@ to_scatter %>%
 
 # patchwork grid plot
 
-plot_index_pairs_scatter_full <-
+plot_index_pairs_scatter_full_cases <-
   (s1 | s2 | s3) / (s4 | s5 | s6) + 
     plot_layout(guides = "collect") + 
     plot_annotation(tag_levels = 'A') & 
     theme(legend.position = "bottom")
 
-plot_index_pairs_scatter_full 
+plot_index_pairs_scatter_full_cases 
 
-ggsave(filename = "output/plot_index_pairs_scatter_full.tiff", device = "tiff", dpi = 700)
+ggsave(filename = "output/plot_index_pairs_scatter_full_cases.tiff", device = "tiff", dpi = 700)
 #ggsave("output/plot_index_pairs_scatter.png")
 
 

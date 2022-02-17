@@ -218,8 +218,8 @@ encounters_casedef_inst <-
 
 ```{r}
 
-# encounters_casedef_inst <-
-#   read_rds("data/encounters_casedef_inst.rds")
+ encounters_casedef_inst <-
+   read_rds("data/encounters_casedef_inst.rds")
 
 encounters_casedef_inst %>% 
     group_by(installation_name) %>% 
@@ -253,18 +253,20 @@ encounters_casedef_inst %>%
 
 # Cumulative percentages
 
+site_cumm_pct <-
+  encounters_casedef_inst %>% 
+      dplyr::filter(!hsi %in% "other") %>% 
+      group_by(installation_name) %>% 
+      count() %>% 
+      arrange(desc(n)) %>% 
+      ungroup() %>% 
+      mutate(cum_pct = cumsum(n) / sum(n),
+             change_cum_pct = cum_pct - lag(cum_pct)) %>% 
+      dplyr::slice_head(n = 30) 
 
-encounters_casedef_inst %>% 
-    dplyr::filter(!hsi %in% "other") %>% 
-    group_by(installation_name) %>% 
-    count() %>% 
-    arrange(desc(n)) %>% 
-    ungroup() %>% 
-    mutate(cum_pct = cumsum(n) / sum(n),
-           change_cum_pct = cum_pct - lag(cum_pct)) %>% 
-    dplyr::slice_head(n = 30) 
+site_cumm_pct
 
-
+site_cumm_pct %>% View()
 ```
 
 

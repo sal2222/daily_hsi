@@ -118,13 +118,35 @@ encounters %>%
   summary(n)
 
 
+
 encounters %>% 
   group_by(studyid) %>% 
   count() %>% 
   arrange(desc(n)) %>% 
   ggplot() +
-    geom_histogram(aes(x = n), bins = 75)
+    geom_bar(aes(x = n))
 
+
+encounters %>% 
+  group_by(studyid, source) %>% 
+  count() %>% 
+  arrange(desc(source, n)) %>% 
+  ggplot(aes(x = n)) +
+    geom_bar() +
+      facet_wrap(~source)+
+      scale_y_continuous(trans = 'log10')
+
+
+encounters %>% 
+  group_by(studyid) %>% 
+  tally() %>%
+  dplyr::select(n) %>% as_vector() %>% 
+  quantile(0.90)
+
+encounters %>% 
+  group_by(studyid, source) %>% 
+  tally() %>% 
+  count(n)
 ```
 
 

@@ -88,7 +88,7 @@ selected_index <- c("tmp_f_mean", "heat_index_mean","wbgt_mean","tmp_f_max", "he
 
 # crossbasis options
 set_lag <- 5    # total number days lag to assess
-set_dr_df <- 4   # natural spline degrees of freedom for functional form of the dose-response curve
+set_dr_df <- 5   # natural spline degrees of freedom for functional form of the dose-response curve
 set_lag_df <- 4   # natural spline degrees of freedom for functional form of the lag
 
 # crosspred options

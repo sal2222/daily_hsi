@@ -172,6 +172,12 @@ or_table_df <-
               index %in% "heat_index_max" ~ "Max Heat Index (°F)",
               index %in% "tmp_f_mean" ~ "Mean Temperature (°F)",
               index %in% "tmp_f_max" ~ "Max Temperature (°F)"),
+              index %in% "wbgt0600" ~ "0600 hours WBGT (°F)",
+              index %in% "wbgt_min" ~ "Minimum WBGT (°F)",
+              index %in% "heat_index0600" ~ "0600 hours Heat Index (°F)",
+              index %in% "heat_index_min" ~ "Minimum Heat Index (°F)",
+              index %in% "tmp_f0600" ~ "0600 hours Temperature (°F)",
+              index %in% "tmp_f_min" ~ "Minimum Temperature (°F)"),
           or_ci = paste0(format(round(rr, digits = 2), nsmall = 2, trim = "TRUE"), 
                          " (", format(round(ci_low, digits = 2), nsmall = 2, trim = "TRUE"), ", ",
                          format(round(ci_high, digits = 2), nsmall = 2, trim = "TRUE"), ")")
@@ -193,10 +199,12 @@ or_table_wide <-
   pivot_wider(names_from = value, values_from = or_ci) 
 
 
-write.csv(or_table_wide, file = "output/or_table_wide.csv")
+#write.csv(or_table_wide, file = "output/or_table_wide.csv")
 
-
-
+or_table_df %>%
+  dplyr::select(-c(index_key, or, ci_low, ci_high)) %>% 
+  #filter(value %in% seq(from = 65, to = 115, by = 5)) %>% 
+  pivot_wider(names_from = index, values_from = or_ci)
 
 
 

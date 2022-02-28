@@ -512,6 +512,128 @@ ellipse_type <- "t"
 point_size <- 0.5
 ellipse_size <- 1.05
 
+```
+
+#Dual Scale
+
+```{r}
+
+plot_font_base <- 8
+annotate_size <- 3
+
+s1 <-
+  to_scatter_cutoff %>% 
+    dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+    ggplot(aes(x = `Mean Temperature`, y = `Mean Heat Index`)) +
+      geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+      geom_smooth(method = "lm", se = FALSE, color = "black") +
+      stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+      annotate(x = 90, y = 70, 
+           label=paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean Heat Index`),2)), 
+           geom = "text", size = annotate_size) +
+      scale_x_continuous("Mean Temperature (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Mean Temperature (°C)", breaks = seq(from = -20, to = 50, by = 5))) +
+      scale_y_continuous("Mean Heat Index (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Mean Heat Index (°C)", breaks = seq(from = -20, to = 50, by = 5))) + 
+       theme_bw(base_size = plot_font_base)
+
+s2 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Temperature`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+  annotate(x = 95, y = 65, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Temperature`, to_scatter_cutoff$`Mean WBGT`),2)), 
+         geom = "text", size = annotate_size) +
+  scale_x_continuous("Mean Temperature (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Mean Temperature (°C)", breaks = seq(from = -20, to = 50, by = 5))) +
+  scale_y_continuous("Mean WBGT (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Mean WBGT (°C)", breaks = seq(from = -20, to = 50, by = 5))) + 
+       theme_bw(base_size = plot_font_base)
+
+s3 <-
+to_scatter_cutoff %>%  
+  dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
+  ggplot(aes(x = `Mean Heat Index`, y = `Mean WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+     annotate(x = 95, y = 65, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Mean Heat Index`, to_scatter_cutoff$`Mean WBGT`),2)), 
+         geom = "text", size = annotate_size) +
+    scale_x_continuous("Mean Heat Index (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Mean Heat Index (°C)", breaks = seq(from = -20, to = 50, by = 5))) +
+  scale_y_continuous("Mean WBGT (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Mean WBGT (°C)", breaks = seq(from = -20, to = 50, by = 5))) + 
+       theme_bw(base_size = plot_font_base)
+
+
+# Max pairwise scatterplots
+
+s4 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Temperature`, y = `Max Heat Index`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+   annotate(x = 105, y = 80, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max Heat Index`),2)), 
+         geom = "text", size = annotate_size) +
+      scale_x_continuous("Maximum Temperature (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Maximum Temperature (°C)", breaks = seq(from = -20, to = 50, by = 5))) +
+  scale_y_continuous("Maximum Heat Index (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Maximum Heat Index (°C)", breaks = seq(from = -20, to = 50, by = 5))) + 
+       theme_bw(base_size = plot_font_base)
+
+
+s5 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Temperature`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+    geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+     annotate(x = 80, y = 100, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Temperature`, to_scatter_cutoff$`Max WBGT`),2)), 
+         geom = "text", size = annotate_size) +
+    scale_x_continuous("Maximum Temperature (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Maximum Temperature (°C)", breaks = seq(from = -20, to = 50, by = 5))) +
+  scale_y_continuous("Maximum WBGT (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Maximum WBGT (°C)", breaks = seq(from = -20, to = 50, by = 5))) + 
+       theme_bw(base_size = plot_font_base)
+
+s6 <-
+to_scatter_cutoff %>% 
+  dplyr::select(`Max Temperature`, `Max Heat Index`, `Max WBGT`, Region) %>%
+  ggplot(aes(x = `Max Heat Index`, y = `Max WBGT`)) +
+    geom_point(alpha = alpha_val, size = point_size, aes(color = Region)) +
+   geom_smooth(method = "lm", se = FALSE, color = "black") +
+   stat_ellipse(type = ellipse_type, size = ellipse_size, aes(color = Region)) +
+   annotate(x = 80, y = 100, 
+         label = paste("r = ", round(cor(to_scatter_cutoff$`Max Heat Index`, to_scatter_cutoff$`Max WBGT`),2)), 
+         geom = "text", size = annotate_size) +
+  scale_x_continuous("Maximum Heat Index (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Maximum Heat Index (°C)", breaks = seq(from = -20, to = 50, by = 5))) +
+  scale_y_continuous("Maximum WBGT (°F)", sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Maximum WBGT (°C)", breaks = seq(from = -20, to = 50, by = 5))) + 
+       theme_bw(base_size = plot_font_base)
+
+
+
+# patchwork grid plot
+
+plot_scatter_dual <-
+  (s1 | s2 | s3) / (s4 | s5 | s6) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_scatter_dual
+
+#ggsave(filename = "output/plot_scatter_dual.tiff", device = "tiff", dpi = 700)
+#ggsave("output/plot_scatter_dual.tiff)
+
+
+
+```
+
+
+
+
+
+# Revision 1
+```{r}
 s1 <-
   to_scatter_cutoff %>% 
     dplyr::select(`Mean Temperature`, `Mean Heat Index`, `Mean WBGT`, Region) %>%
@@ -614,6 +736,9 @@ plot_index_pairs_scatter_2x3
 
 
 ```
+
+
+
 
 
 
@@ -1178,6 +1303,102 @@ plot_density_patch <-
 plot_density_patch
 
 ggsave("output/plot_density_patch.png", width = 9.5, height = 4)
+
+```
+
+
+### Patchwork density plots: with Celsius scale
+```{r}
+
+mean_median <- 
+  to_density_plot_all %>% 
+  group_by(index, type) %>% 
+  summarise(mean = mean(Value),
+            median = median(Value)) 
+
+
+density_temp <-
+  to_density_plot_all %>% 
+    filter(index %in% "Temperature") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily Temperature (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10),
+                         sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Daily Temperature (°C)",
+                         breaks = seq(from = -20, to = 50, by = 10))) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.08, by = 0.02), limits = c(0.00, 0.08)) 
+                         
+     
+
+
+
+density_hi <-
+  to_density_plot_all %>% 
+    filter(index %in% "Heat Index") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily Heat Index (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10),
+                         sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Daily Heat Index (°C)",
+                         breaks = seq(from = -20, to = 50, by = 10))) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.08, by = 0.02), limits = c(0.00, 0.08))
+
+density_wbgt <-
+  to_density_plot_all %>% 
+    filter(index %in% "WBGT") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily WBGT (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10),
+                         sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Daily WBGT (°C)",
+                         breaks = seq(from = -20, to = 50, by = 10))) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.08, by = 0.02), limits = c(0.00, 0.08))
+
+
+# patchwork grid plot
+
+plot_density_dual_scale <-
+  (density_temp | density_hi | density_wbgt) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_density_dual_scale
+
+ggsave("output/plot_density_dual_scale.tiff", width = 9.5, height = 4)
 
 ```
 
